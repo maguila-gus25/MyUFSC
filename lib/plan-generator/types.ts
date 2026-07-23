@@ -12,6 +12,7 @@ import type { Course } from "@/types/curriculum";
 import type { StudentInfo, StudentPlan } from "@/types/student-plan";
 import type { Professor } from "@/parsers/class-parser";
 import type { TurnoFilter } from "@/lib/schedule-conflict";
+import type { BottleneckCollision } from "@/lib/plan-generator/bottleneck";
 
 /** Student-adjustable knobs for a generation run. */
 export interface GeneratorConfig {
@@ -34,6 +35,22 @@ export interface GeneratorInput {
   sections: Record<string, Professor[]>;
   /** Turno + credit-cap configuration. */
   config: GeneratorConfig;
+  /**
+   * Calendar code (`"YYYYS"`, e.g. `"20262"`) of the schedule snapshot the
+   * sections come from (`fetchedSemester`). Reused for every future semester.
+   * Optional — defaults to the student's current semester if the caller omits
+   * it, so existing callers/tests keep working.
+   */
+  scheduleSnapshotSemester?: string;
+}
+
+/**
+ * Static graduation requirements beyond the mandatory disciplines, surfaced as
+ * a reminder on every scenario. Optativas scheduling is deferred to Sprint 04.
+ */
+export interface GraduationReminder {
+  complementaresHours: number;
+  optativasHours: number;
 }
 
 /** Why a remaining mandatory course could not be placed. */
@@ -64,6 +81,47 @@ export interface PlanScenario {
   placedWithoutSection: string[];
   /** Remaining mandatory courses that could not be placed, with reasons. */
   unplaceable: UnplacedCourse[];
+  /**
+   * True when any semester's packing solver exhausted its node budget and fell
+   * back to the greedy-by-weight heuristic (result may be non-optimal).
+   */
+  usedPackingFallback: boolean;
+  /**
+   * Mutually-exclusive pairs among the critical roots — two central courses no
+   * section pairing can co-schedule (diagnostic; pairwise/top-K only, see
+   * `bottleneck.ts`).
+   */
+  bottleneckCollisions: BottleneckCollision[];
+  /**
+   * Lower-bound minimum number of future semesters given prerequisite chains,
+   * night capacity, and the detected collisions. A diagnostic lower bound
+   * computed against the reused schedule snapshot — NOT a proof it is
+   * achievable (see `bottleneck.ts` for the full list of limits).
+   */
+  minSemestersFloor: number;
+  /**
+   * True when any placement lands in a calendar semester beyond the schedule
+   * snapshot — i.e. the plan assumes the snapshot's offering repeats in future
+   * semesters (effectively always for a multi-semester plan).
+   */
+  assumesReusedFutureSchedule: boolean;
+  /** Calendar code of the reused schedule snapshot (see {@link GeneratorInput}). */
+  scheduleSnapshotSemester: string;
+  /** Static reminder of the non-discipline graduation requirements. */
+  graduationReminder: GraduationReminder;
+  /**
+   * True when the achieved makespan (`totalFutureSemesters`) equals
+   * `minSemestersFloor` — provably optimal against our admissible lower bound.
+   * NOT a global feasibility proof: the floor is a top-K/reused-snapshot
+   * diagnostic (see `bottleneck.ts`), so the UI phrases this as "ótimo
+   * (estimado)".
+   */
+  isOptimal: boolean;
+  /**
+   * Id of the search strategy that produced this plan (`"weight"`,
+   * `"cardinality-weight"`, `"cardinality-depth"`) — debug/telemetry only.
+   */
+  strategyId: string;
   /** Cap + turno actually used for this scenario (shown in the preview). */
   config: GeneratorConfig;
 }

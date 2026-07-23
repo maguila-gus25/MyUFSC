@@ -30,6 +30,9 @@ interface PlanGeneratorModalProps {
   onClose: () => void;
   /** Raw MatrUFSC schedule blob the Timetable already resolved. May be null. */
   scheduleData: unknown;
+  /** Semester the offering snapshot was fetched for (e.g. "20262"), reused for
+   *  future semesters. Drives the "horários estimados" note. */
+  snapshotSemester?: string;
 }
 
 const DEFAULT_CREDIT_CAP = 28;
@@ -53,6 +56,7 @@ export default function PlanGeneratorModal({
   open,
   onClose,
   scheduleData,
+  snapshotSemester,
 }: PlanGeneratorModalProps) {
   const studentInfo = useStudentStore((s) => s.studentInfo);
   const curriculumCache = useStudentStore((s) => s.curriculumCache);
@@ -121,6 +125,7 @@ export default function PlanGeneratorModal({
       courses,
       sections,
       config: { turno, creditCap: cap },
+      scheduleSnapshotSemester: snapshotSemester,
     });
     setResult(generated);
     setSelectedId(generated.scenarios[0]?.id ?? null);
@@ -451,6 +456,53 @@ function ScenarioPreview({
           </ul>
         </div>
       )}
+
+      {/* Bottleneck-collision floor diagnostic */}
+      {scenario.bottleneckCollisions.length > 0 && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+          <h4 className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-foreground">
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
+            Piso mínimo: {scenario.minSemestersFloor} semestres
+          </h4>
+          <ul className="space-y-1.5">
+            {scenario.bottleneckCollisions.map((collision) => (
+              <li
+                key={`${collision.a}-${collision.b}`}
+                className="text-xs text-muted-foreground"
+              >
+                As disciplinas{" "}
+                <span className="font-medium text-foreground">
+                  {courseName(collision.a)}
+                </span>{" "}
+                e{" "}
+                <span className="font-medium text-foreground">
+                  {courseName(collision.b)}
+                </span>{" "}
+                não cabem no mesmo semestre (mesmo horário:{" "}
+                {collision.sharedCells.join(", ") || "—"}), o que adiciona +
+                {collision.floorImpact}{" "}
+                {collision.floorImpact === 1 ? "semestre" : "semestres"}.
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Future-schedule assumption note */}
+      {scenario.assumesReusedFutureSchedule && (
+        <p className="text-xs text-muted-foreground">
+          Horários de semestres futuros são estimados a partir da oferta de{" "}
+          {scenario.scheduleSnapshotSemester}.
+        </p>
+      )}
+
+      {/* Graduation-requirements reminder — always shown */}
+      <p className="text-xs text-muted-foreground">
+        Além das disciplinas: {scenario.graduationReminder.complementaresHours}h
+        de atividades complementares e{" "}
+        {scenario.graduationReminder.optativasHours}h de optativas não estão
+        incluídas neste plano.
+      </p>
     </div>
   );
 }
