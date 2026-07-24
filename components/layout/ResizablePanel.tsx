@@ -74,6 +74,7 @@ export default function ResizablePanel({
       return h;
     });
     document.removeEventListener("pointermove", handlePointerMove);
+    // eslint-disable-next-line react-hooks/immutability -- self-referential removeEventListener cleanup, intentional
     document.removeEventListener("pointerup", handlePointerUp);
     document.body.style.cursor = "";
     document.body.style.userSelect = "";

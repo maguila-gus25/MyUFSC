@@ -9,6 +9,17 @@ import ConnectionLines from "@/components/dependency-tree/ConnectionLines"
 import CourseHighlighter from "@/components/dependency-tree/CourseHighlighter"
 import InfoBanner from "@/components/dependency-tree/InfoBanner"
 
+// Module-scoped (no closure dependencies — only touches the global `document`)
+// so effects can reference it without it becoming an effect dependency and
+// without any access-before-declaration concern.
+function cleanupDashboard() {
+  // Remove dashboard highlights (kept minimal for essential cleanup)
+  document.querySelectorAll('.panel').forEach(dashboard => {
+    dashboard.classList.remove('ring-1', 'ring-inset', 'ring-blue-300')
+    dashboard.querySelectorAll('#dashboard-overlay').forEach(overlay => overlay.remove())
+  })
+}
+
 interface DependencyTreeProps {
   course: Course
   isVisible: boolean
@@ -75,14 +86,6 @@ export default function DependencyTree({
     }
   }, [isVisible, isReady, setDependencyState]) // Updated dependency array
 
-  const cleanupDashboard = () => {
-    // Remove dashboard highlights (kept minimal for essential cleanup)
-    document.querySelectorAll('.panel').forEach(dashboard => {
-      dashboard.classList.remove('ring-1', 'ring-inset', 'ring-blue-300')
-      dashboard.querySelectorAll('#dashboard-overlay').forEach(overlay => overlay.remove())
-    })
-  }
-  
   if (!isVisible) return null
   
   return (
