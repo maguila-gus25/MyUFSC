@@ -743,6 +743,7 @@ function ProfessorDetailsSection({
 
   // Refs for debounced voting — stable across renders
   const voteStateRef = useRef(voteState);
+  // eslint-disable-next-line react-hooks/refs -- mirror latest state into a ref so the debounced vote callbacks read fresh values without re-subscribing
   voteStateRef.current = voteState; // Always up-to-date
   const pendingVotes = useRef<Record<string, 0 | 1 | -1>>({});
   const voteTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
