@@ -45,11 +45,11 @@ interface StudentCourse {
 |---|---|---|
 | `selectedCourse` | `Course \| null` | Currently focused course for the details panel |
 | `selectedStudentCourse` | `StudentCourse \| null` | Paired `StudentCourse` for the selected course |
-| `selectedSchedule` / `selectedStudentSchedule` | same | Parallel selection state — currently unused |
+| `selectedSchedule` / `selectedStudentSchedule` | same | Timetable's professor-selection state — set by `selectSchedule`/`clearSchedule` when a course row is clicked in `CourseList`, read by `CourseStats` to drive the live professor-stats panel |
 | `isAuthenticated` | `boolean` | Whether the user has a valid session |
 | `userId` | `string \| null` | The hashed username (server-side user ID) |
 | `authCheckCompleted` | `boolean` | Whether the auth check API call has returned |
-| `curriculumCache` | `Record<string, Course[]>` | In-memory map of degree ID → parsed `Course[]` |
+| `curriculumCache` | `Record<string, Curriculum>` | In-memory map of degree ID → full parsed `Curriculum` (the single, unified curriculum cache) |
 
 ---
 
@@ -101,13 +101,13 @@ All course mutations use Immer's `produce` to write immutable updates. Each acti
 
 ## Curriculum Cache
 
-`curriculumCache: Record<string, Course[]>` maps degree IDs to their parsed `Course[]` arrays. It serves as the in-memory lookup used by `useCourseMap` to resolve course IDs to full `Course` objects at render time.
+`curriculumCache: Record<string, Curriculum>` maps degree IDs to their full parsed `Curriculum` objects. It is the single in-memory lookup used by `useCourseMap` (via `curriculum.courses`) to resolve course IDs to full `Course` objects at render time.
 
-The `cacheCurriculum(degreeId, courses)` action:
+The `cacheCurriculum(degreeId, curriculum)` action:
 1. Writes the new entry.
 2. Evicts any entries whose degree IDs are no longer in `studentInfo.currentDegree` or `interestedDegrees`, preventing stale cache growth when the student changes their degree selection.
 
-Note: `useCurriculum` maintains a parallel cache of full `Curriculum` objects (not just `Course[]`) in its own local state (`curriculumsCache`). The two caches serve different consumers: the Zustand cache is consumed by visualizers and timetable for fast course lookups; the hook cache is consumed by the curriculum header, degree selector, and for re-rendering the phase grid.
+There is **no** parallel curriculum cache. `useCurriculum` (`hooks/setup/UseCurriculum.ts`) and every consumer — visualizers, timetable, curriculum header, degree selector, `available-courses-modal`, `plan-generator-modal`, `search-popup`, `professor-details-dialog`, `useCourseMap` — read and write this one Zustand cache. (A previous `curriculumsCache` in the hook's local state has been removed; the store cache is the sole source of truth.)
 
 ---
 

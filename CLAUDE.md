@@ -92,11 +92,10 @@ Key actions (all via Immer `produce`, all call `updateView` after): `addCourseTo
 `addCustomScheduleEntry`/`remove`/`update`. `updateView` keeps semesters array ≥12 long
 with exactly one trailing empty slot as a DnD drop target.
 
-`curriculumCache: Record<degreeId, Course[]>` — evicted for degrees no longer in
-`studentInfo` on every `cacheCurriculum` call. **Note:** a second, parallel cache
-(`curriculumsCache: Record<degreeId, Curriculum>`, full objects) lives in the
-`useCurriculum` hook's local state — different shape, different consumers, no
-coordination between the two. See `docs/state-management.md`.
+`curriculumCache: Record<degreeId, Curriculum>` — full `Curriculum` objects, evicted for
+degrees no longer in `studentInfo` on every `cacheCurriculum` call. This is the **single,
+unified** curriculum cache: `useCurriculum` and every consumer read `.courses` off this one
+Zustand cache; there is no parallel hook-local cache. See `docs/state-management.md`.
 
 ## Curriculum system
 
@@ -287,13 +286,15 @@ ingestion.
 - Sequential hook waterfall on `/` (4 round-trips minimum) — `app/page.tsx`.
 - `StudentCourse` had a legacy shape with duplicated flattened fields; `student-store.ts`'s
   persist `merge()` migrates old-format entries in place on hydration.
-- Two parallel curriculum caches with no coordination (Zustand `curriculumCache` vs
-  hook `curriculumsCache`).
+- The curriculum cache is now **unified** as `curriculumCache: Record<degreeId, Curriculum>`
+  in the Zustand store — don't reintroduce a parallel hook-local `curriculumsCache`.
 - Course-status/equivalence logic duplicated between `CurriculumVisualizer` and
   `GridVisualizer`.
 - `normalizeProfessorId`/`normalizeId` duplicated across 3 files instead of importing
   from `lib/professors.ts`.
-- `selectedSchedule`/`selectedStudentSchedule` in the store appear to have no consumers.
+- `selectedSchedule`/`selectedStudentSchedule` are **live** — they drive the timetable's
+  professor-selection stats panel (`selectSchedule`/`clearSchedule` ↔ `CourseList`/`CourseStats`);
+  not dead state, don't remove them.
 - Full file-level detail and more items: `docs/architecture.md` §11,
   `docs/professor-rating-architecture-issues.md`.
 
