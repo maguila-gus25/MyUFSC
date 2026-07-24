@@ -37,6 +37,7 @@ export function useStudentProfile({
   useEffect(() => {
     // Case 0: Data missing but we have a user ID -> FETCH IT
     if (!storeStudentInfo && !studentInfo && userId && setStoreStudentInfo) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- external async sync, not derivable in render
       setIsProfileLoading(true);
 
       const loadData = async () => {
@@ -126,6 +127,7 @@ export function useStudentProfile({
 
     // Update previous storeStudentInfo for the next render
     prevStoreStudentInfoRef.current = storeStudentInfo;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: signature-guarded fetch, extra deps would refetch
   }, [storeStudentInfo, isProfileLoading, userId, setStoreStudentInfo, authCheckCompleted]); // router removed as it's not directly used in this effect's logic now
 
   return { studentInfo, setStudentInfo, isProfileLoading };

@@ -19,13 +19,11 @@ export interface UseScheduleResult {
 interface UseScheduleProps {
   studentInfo: StudentInfo | null;
   isProfileLoading: boolean;
-  isCurriculumLoading: boolean;
 }
 
 export function useSchedule({
   studentInfo,
   isProfileLoading,
-  isCurriculumLoading,
 }: UseScheduleProps): UseScheduleResult {
   const [scheduleState, setScheduleState] = useState<ScheduleHookState>({
     scheduleData: null,
@@ -38,7 +36,8 @@ export function useSchedule({
   const fetchedForDegreeRef_Schedule = useRef<string | null | undefined>(null);
 
   useEffect(() => {
-    if (isProfileLoading || isCurriculumLoading) {
+    if (isProfileLoading) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- external async sync, not derivable in render
       setIsScheduleLoading(true);
       fetchedForDegreeRef_Schedule.current = null;
       return;
@@ -147,10 +146,10 @@ export function useSchedule({
     } else {
       if (isScheduleLoading) setIsScheduleLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: signature-guarded fetch, extra deps would refetch
   }, [
     studentInfo,
     isProfileLoading,
-    isCurriculumLoading,
     scheduleState.selectedSemester,
   ]);
 
