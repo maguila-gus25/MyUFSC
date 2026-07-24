@@ -112,6 +112,7 @@ export const useDependencyGraph = (
     findPrerequisites(course);
     findDependents(course);
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- deferred: avoidable derived-state effect, tracked in #31
     setCoursesDepth(depthMap);
     setPrerequisiteCourses(prerequisites);
     setDependentCourses(dependents);

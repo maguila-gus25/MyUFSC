@@ -161,6 +161,7 @@ export default function SearchPopup({
         });
       });
 
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- deferred: avoidable derived-state effect, tracked in #31
       setSearchResults(results);
       return;
     }
@@ -213,6 +214,7 @@ export default function SearchPopup({
 
   // Initialize local search term on initial prop change
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- deferred: avoidable derived-state effect, tracked in #31
     setLocalSearchTerm(initialSearchTerm);
   }, [initialSearchTerm]);
 

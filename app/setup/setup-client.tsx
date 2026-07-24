@@ -64,6 +64,7 @@ export default function SetupClient() {
   // Filter programs when search term changes
   useEffect(() => {
     if (!searchTerm.trim()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- deferred: avoidable derived-state effect, tracked in #31
       setFilteredPrograms(degreePrograms);
       return;
     }

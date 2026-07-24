@@ -69,6 +69,7 @@ export default function ProgressVisualizer({
 
   // Update lastUpdate when studentPlan changes
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- deferred: avoidable derived-state effect, tracked in #31
     setLastUpdate(Date.now().toString());
   }, [studentPlan, displayedSemesters.length]);
 

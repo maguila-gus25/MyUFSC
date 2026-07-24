@@ -88,6 +88,7 @@ export default function PlanGeneratorModal({
     if (typeof window === "undefined") return;
     const stored = window.localStorage.getItem(CREDIT_CAP_STORAGE_KEY);
     const parsed = stored ? Number(stored) : NaN;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- external sync: hydrate persisted credit cap from localStorage
     if (Number.isFinite(parsed) && parsed > 0) setCreditCap(parsed);
   }, []);
 
@@ -95,6 +96,7 @@ export default function PlanGeneratorModal({
   // preview never lingers after the plan changed underneath it.
   useEffect(() => {
     if (!open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- deferred: avoidable derived-state effect, tracked in #31
       setResult(null);
       setSelectedId(null);
     }

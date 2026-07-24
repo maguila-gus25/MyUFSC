@@ -122,6 +122,7 @@ export default function CustomEventsOverlay({
       toMinutes(e.startTime) === pending.startMin &&
       toMinutes(e.endTime) === pending.endMin
     ) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- deferred: avoidable derived-state effect, tracked in #31
       setPending(null);
     }
   }, [entries, pending]);

@@ -882,6 +882,7 @@ function ProfessorDetailsSection({
 
   useEffect(() => {
     let mounted = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- external sync: loading flag for async professor-details fetch
     setLoading(true);
 
     fetchProfessorDetails(professorId, myHash)
@@ -1163,6 +1164,7 @@ function ProfessorDetailsSection({
 
   // Clear reply text when switching which reply box is open
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- deferred: avoidable derived-state effect, tracked in #31
     setReplyText("");
   }, [replyingTo]);
 

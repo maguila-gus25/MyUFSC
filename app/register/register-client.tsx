@@ -85,6 +85,7 @@ export default function RegisterClient() {
   // Update formData if store loads late or was already loaded
   useEffect(() => {
     if (studentStore.studentInfo) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- deferred: avoidable derived-state effect, tracked in #31
       setFormData((prev) => ({
         ...prev,
         name: prev.name || studentStore.studentInfo?.name || "",
@@ -202,6 +203,7 @@ export default function RegisterClient() {
   // Filter programs when search term changes
   useEffect(() => {
     if (!searchTerm.trim()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- deferred: avoidable derived-state effect, tracked in #31
       setFilteredPrograms(degreePrograms);
       return;
     }

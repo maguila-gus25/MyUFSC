@@ -54,6 +54,7 @@ export default function StudentCourseDetailsPanel({
   } | null>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- deferred: avoidable derived-state effect, tracked in #31
     if (course && studentCourse) setDisplayData({ course, studentCourse });
   }, [course, studentCourse]);
 
@@ -178,6 +179,7 @@ function PanelContent({
   // Deferred parse — avoids blocking the first render with a full schedule scan.
   const [professors, setProfessors] = useState<ProfEntry[]>([]);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- deferred: avoidable derived-state effect, tracked in #31
     if (!scheduleData) { setProfessors([]); return; }
     try {
       const parsed = parsescheduleData(scheduleData);

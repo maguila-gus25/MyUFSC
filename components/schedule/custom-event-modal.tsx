@@ -64,6 +64,7 @@ export default function CustomEventModal({
   useEffect(() => {
     if (open) {
       const newStart = initialEntry?.startTime ?? TIMETABLE.TIME_SLOTS[0].id;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- deferred: avoidable derived-state effect, tracked in #31
       setTitle(initialEntry?.title ?? "");
       setSubtitle(initialEntry?.subtitle ?? "");
       setDay(initialEntry?.day ?? 0);

@@ -35,6 +35,7 @@ export function ProfessorSearch({ onSelect, className, refreshTrigger }: Profess
   // When a review is submitted externally, clear cached results so they re-fetch on next open
   useEffect(() => {
     if (refreshTrigger !== undefined) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- deferred: avoidable derived-state effect, tracked in #31
       setResults([]);
     }
   }, [refreshTrigger]);
