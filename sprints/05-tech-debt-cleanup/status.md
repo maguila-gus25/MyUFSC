@@ -7,8 +7,8 @@ Commits, merged via PR. **Theme:** pay down cross-cutting tech debt (issues #20,
 |---|---|
 | Plan (backlog + architect plan) | ✅ done — `backlog.md`, `plan.md` |
 | Gate 1 (approval to build) | ✅ **approved** (2026-07-24) — T1–T5, baseline `core-web-vitals`, **T6 deferred** |
-| Run (engineers implement tasks) | 🔄 in progress (`/sprint-run`) |
-| Review (build/lint/test/parity + PR) | ⬜ not started (`/sprint-review`) |
+| Run (engineers implement tasks) | ✅ done — T1–T5 landed (T6 deferred) |
+| Review (build/lint/test/parity + PR) | 🔄 in progress (`/sprint-review`) |
 
 ## Headline finding
 Architect verification shows the issue text is **stale for 4 of 5 items** — most of this
@@ -18,11 +18,11 @@ Architect verification shows the issue text is **stale for 4 of 5 items** — mo
 ## Tasks (initial — not yet dispatched)
 | # | Task | Owner | Issue | Depends | Droppable | State |
 |---|---|---|---|---|---|---|
-| T1 | Install ESLint + flat config, `eslint .` script | backend-engineer | #20 | — | no (P0) | ⬜ |
-| T2 | Verify #19 reachability, close as invalid, fix stale notes | frontend-engineer | #19 | — | no | ⬜ |
-| T3 | Close #16 (already unified), fix cache docs | frontend-engineer | #16 | — | no | ⬜ |
-| T4 | Point `timetable.tsx` + `update-professors.ts` at canonical normalizer | backend-engineer + fe | #18 | T1 | no | ⬜ |
-| T5 | Extract `computeCurriculumStatusMap` + golden-master test | frontend-engineer | #17 | T1 | yes | ⬜ |
+| T1 | Install ESLint + flat config, `eslint .` script | backend-engineer | #20 | — | no (P0) | ✅ `6f258be` — 63 findings recorded |
+| T2 | Verify #19 reachability, close as invalid, fix stale notes | frontend-engineer | #19 | — | no | ✅ `c45827a` (combined w/ T3) |
+| T3 | Close #16 (already unified), fix cache docs | frontend-engineer | #16 | — | no | ✅ `c45827a` |
+| T4 | Point `timetable.tsx` + `update-professors.ts` at canonical normalizer | backend-engineer + fe | #18 | T1 | no | ✅ `cd952a4` — byte-identical |
+| T5 | Extract `computeCurriculumStatusMap` + golden-master test | frontend-engineer | #17 | T1 | yes | ✅ `79bb6cf` — parity diff empty on 4 curricula |
 | ~~T6~~ | ~~Unify placeholder predicate across visualizers~~ | — | #17 | — | **DEFERRED at Gate 1** | ⏭️ |
 
 ## Maintainer decisions required at Gate 1
