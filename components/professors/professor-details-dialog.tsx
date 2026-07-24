@@ -754,6 +754,7 @@ function ProfessorDetailsSection({
   // Clear all pending vote timers when the dialog unmounts
   useEffect(() => {
     return () => {
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount-only cleanup; reading voteTimers.current at unmount clears whatever timers are pending then (capturing at mount would be empty)
       for (const timer of Object.values(voteTimers.current)) clearTimeout(timer);
     };
   }, []);

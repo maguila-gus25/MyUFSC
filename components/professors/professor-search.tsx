@@ -239,7 +239,7 @@ export function ProfessorSearch({ onSelect, className, refreshTrigger }: Profess
                 query.length >= 2 &&
                 !isLoading && (
                   <div className="p-8 text-center text-muted-foreground">
-                    Nenhum professor encontrado para "{query}"
+                    Nenhum professor encontrado para &quot;{query}&quot;
                   </div>
                 )
               )}

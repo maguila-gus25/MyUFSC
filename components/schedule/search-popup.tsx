@@ -105,7 +105,7 @@ export default function SearchPopup({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [onClose, searchResults, activeIndex, selectCourse, handleAddWithCheck, selectedPhase]);
+  }, [onClose, searchResults, activeIndex, selectCourse, handleAddWithCheck, selectedPhase, availableCourses]);
 
   // Extract current courses from the student info
   const currentCourses = useMemo(() => {
@@ -332,7 +332,7 @@ export default function SearchPopup({
               </div>
             ) : (
               <div className="p-8 text-center text-muted-foreground">
-                Nenhuma disciplina encontrada para "{localSearchTerm}"
+                Nenhuma disciplina encontrada para &quot;{localSearchTerm}&quot;
               </div>
             )}
           </div>

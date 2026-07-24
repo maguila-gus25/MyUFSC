@@ -49,19 +49,20 @@ export default function DependencyTree({
   // Clean up when component unmounts or visibility changes
   useEffect(() => {
     return () => {
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional unmount-only cleanup; reading dashboardRef.current at unmount is the desired behavior (capturing at mount would be null)
       if (dashboardRef.current) {
         // This cleanup happens on unmount
         cleanupDashboard()
       }
     }
-  }, [])
-  
+  }, [dashboardRef])
+
   // When visibility changes to false, clean up
   useEffect(() => {
     if (!isVisible && dashboardRef.current) {
       cleanupDashboard()
     }
-  }, [isVisible])
+  }, [isVisible, dashboardRef])
   
   // Handle global events
   useEffect(() => {
