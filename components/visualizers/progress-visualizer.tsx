@@ -72,18 +72,6 @@ export default function ProgressVisualizer({
     setLastUpdate(Date.now().toString());
   }, [studentPlan, displayedSemesters.length]);
 
-  // Safeguard against rendering with invalid data
-  if (
-    !studentPlan ||
-    !studentPlan.semesters
-  ) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Carregando plano de estudos...</p>
-      </div>
-    );
-  }
-
   // Calculate dynamic phase width/height based on the actual container box.
   // Height is measured here (rather than left to a `h-full` percentage chain
   // through several nested flex/overflow-auto ancestors) because that chain
@@ -148,6 +136,18 @@ export default function ProgressVisualizer({
       }),
     }));
   }, [displayedSemesters, courseMap]);
+
+  // Safeguard against rendering with invalid data. Placed after every hook (not
+  // between them) so no hook is called conditionally (rules-of-hooks). In
+  // practice this never fires today — earlier hooks already dereference
+  // `studentPlan`, so a null would have thrown first.
+  if (!studentPlan || !studentPlan.semesters) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-muted-foreground">Carregando plano de estudos...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col w-full h-full">
