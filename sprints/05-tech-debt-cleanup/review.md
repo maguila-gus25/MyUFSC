@@ -141,3 +141,33 @@ other versions and cover the same engine paths.) The script was not committed.
   pre-existing baseline (no delta). `lib/curriculum-status.ts` and its test file produce
   **zero** findings; `curriculum-visualizer.tsx`'s remaining findings are the pre-existing
   rules-of-hooks/exhaustive-deps ones, unchanged in count.
+
+---
+
+## Sprint verdict & acceptance check (review gate)
+
+**Automated checks (consolidated, re-run at gate):**
+- `pnpm run test` → **42 passed / 0 failed** (38 pre-existing plan-generator + 4 new `curriculum-status`).
+- `pnpm run lint` → **executes ESLint** (fixed by T1); **63 findings (50 err / 13 warn)** — all pre-existing baseline, recorded not fixed per US-1 AC. Zero new findings introduced by any task.
+- `pnpm run build` → passes (verified across T1/T4/T5).
+- Code-review of the T5 extraction (highest risk): confirmed a **verbatim move** — `computeCurriculumStatusMap(curriculum.courses, studentPlan.semesters, equivalenceMap)` with an unchanged memo dependency array; placeholder regex, `false`/`"false"` coercion, and pool-draining order all preserved.
+
+**Acceptance criteria, story by story:**
+
+| Story | Issue | Verdict | Evidence |
+|---|---|---|---|
+| US-1 lint runner | #20 | ✅ met | `eslint.config.mjs` + `scripts.lint="eslint ."`; `core-web-vitals` baseline (maintainer-approved); findings recorded not fixed. |
+| US-2 dedupe normalizer | #18 | ✅ met | `timetable.tsx` + `update-professors.ts` import canonical `normalizeProfessorId`; byte-identical spot-checks pass; grep shows no inline copies remain. |
+| US-3 unify caches | #16 | ✅ met (doc-fix variant) | Cache already unified; `curriculumsCache` absent (grep); `CLAUDE.md`/`state-management.md` corrected. **Close #16 as already-resolved.** |
+| US-4 dedupe status engine | #17 | ✅ met (4a) | `computeCurriculumStatusMap` extracted + golden-master test; parity diff **empty** on 4 real curricula. **4b deferred (maintainer decision).** |
+| US-5 dead-field investigation | #19 | ✅ met | Reachability trace proves fields live; docs corrected. **Close #19 as invalid.** |
+
+**Scope delivered:** T1–T5. **T6 deferred** at Gate 1 (placeholder-regex reconciliation, gated on parity diff or sign-off).
+
+**Verdict:** all gate checks green, all in-scope acceptance criteria met. **Ready to open PR into `main`** — pending maintainer Gate 2 approval.
+
+**Environment flag (not a code issue):** the dev volume hit `ENOSPC` mid-sprint; T1 reclaimed the gitignored `.next` cache. Disk finished ~100% used / ~1.2Gi free — worth attention outside this sprint.
+
+**Follow-up issues to open on merge:**
+- Triage the 63 pre-existing ESLint findings surfaced by the now-working linter (mostly React Compiler rules).
+- #17 Step 4b (unify placeholder regex `CurriculumVisualizer`/`GridVisualizer`/`course-box`) — needs the parity-diff or a behavior decision on the electives grid.
