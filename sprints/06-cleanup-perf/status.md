@@ -7,8 +7,9 @@
 |---|---|
 | Plan (backlog + architect plan) | ✅ done — `backlog.md`, `plan.md` |
 | Gate 1 (approval to build) | ✅ **approved** (2026-07-24) — #29 disables+defer, #15 decouple-only |
-| Run (engineers implement) | 🔄 in progress |
-| Review + Gate 2 (PR) | ⬜ not started |
+| Run (engineers implement) | ✅ done — T1–T6 landed (6 commits) |
+| Review (lint 0 / build / test / acceptance) | ✅ done — all green (see `review.md`) |
+| Gate 2 (approval to open PR) | ⏳ **awaiting maintainer** |
 
 ## Headline findings (architect verification)
 - **#15 key insight:** `curriculum → schedule` is a **FALSE dependency** — `useSchedule`
