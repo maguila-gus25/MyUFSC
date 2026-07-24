@@ -254,6 +254,18 @@ export default function PlanGeneratorModal({
               </p>
             ) : (
               <div className="space-y-4">
+                {/* Optimality disclaimer — the search is heuristic, not exhaustive */}
+                <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+                  <Info className="h-4 w-4 shrink-0" />
+                  <p>
+                    Estes planos são uma sugestão e{" "}
+                    <strong>podem não ser o melhor plano possível</strong>. O
+                    gerador busca reduzir o número de semestres, mas não testa
+                    todas as combinações — use o resultado como ponto de partida
+                    e ajuste manualmente conforme sua preferência.
+                  </p>
+                </div>
+
                 {/* Scenario picker */}
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {result.scenarios.map((scenario) => (
