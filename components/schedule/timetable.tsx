@@ -26,6 +26,7 @@ import TimetableGrid from "./timetable-grid";
 import CustomEventModal from "./custom-event-modal";
 import { ProfessorDetailsDialog } from "@/components/professors/professor-details-dialog";
 import { fetchProfessorAggregates } from "@/lib/professors-client";
+import { normalizeProfessorId } from "@/lib/professors";
 import { CalendarPlus2 } from "lucide-react";
 
 const TIMETABLE_COLORS = TIMETABLE_COLOR_CLASSES;
@@ -232,14 +233,7 @@ export default function Timetable({
 
   const knownTaughtCourses = useMemo(() => {
     if (!detailsProfessorId || !timetableData?.professors) return [];
-    const norm = (s: string) =>
-      s
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .toUpperCase()
-        .replace(/\s+/g, " ")
-        .trim();
-    const targetNorm = norm(detailsProfessorId);
+    const targetNorm = normalizeProfessorId(detailsProfessorId);
     const courses = [];
     for (const [courseId, profs] of Object.entries(timetableData.professors)) {
       if (
@@ -248,7 +242,9 @@ export default function Timetable({
           // p.name may be "Prof A, Prof B" for multi-teacher classes
           const names = p.name.split(",").map((n: string) => n.trim());
           return names.some(
-            (n: string) => n === detailsProfessorId || norm(n) === targetNorm,
+            (n: string) =>
+              n === detailsProfessorId ||
+              normalizeProfessorId(n) === targetNorm,
           );
         })
       ) {
