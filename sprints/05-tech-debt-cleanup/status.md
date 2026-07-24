@@ -8,7 +8,9 @@ Commits, merged via PR. **Theme:** pay down cross-cutting tech debt (issues #20,
 | Plan (backlog + architect plan) | ✅ done — `backlog.md`, `plan.md` |
 | Gate 1 (approval to build) | ✅ **approved** (2026-07-24) — T1–T5, baseline `core-web-vitals`, **T6 deferred** |
 | Run (engineers implement tasks) | ✅ done — T1–T5 landed (T6 deferred) |
-| Review (build/lint/test/parity + PR) | 🔄 in progress (`/sprint-review`) |
+| Review (build/lint/test/parity + PR) | ✅ done — 42 tests, lint runs, build green, parity empty |
+| Gate 2 (approval to open PR) | ✅ approved — **PR [#28](https://github.com/maguila-gus25/MyUFSC/pull/28)** opened into fork `main` |
+| Closure | ✅ #16 & #19 closed as resolved/invalid; follow-ups #29 (lint triage), #30 (4b) opened |
 
 ## Headline finding
 Architect verification shows the issue text is **stale for 4 of 5 items** — most of this
