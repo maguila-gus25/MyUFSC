@@ -623,6 +623,9 @@ function ReplyThread({
 
 type Scores = { overall: number; difficulty: number; didactics: number };
 
+// Server page size for the paginated professor-details reviews endpoint.
+const REVIEWS_PAGE_SIZE = 20;
+
 /**
  * Iteratively removes soft-deleted nodes ([removido]) that have no children.
  * Runs until no more orphans exist (handles chains: grandparent → parent → child).
@@ -706,6 +709,11 @@ function ProfessorDetailsSection({
   const [stats, setStats] = useState<Record<string, Stats>>({});
   const [reviews, setReviews] = useState<Review[]>([]);
   const [replies, setReplies] = useState<ReplyObj[]>([]);
+  // Pagination: only the very first (offset=0) page carries statsPerCourse;
+  // "Carregar mais" fetches later pages and appends them additively.
+  const [nextOffset, setNextOffset] = useState(REVIEWS_PAGE_SIZE);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const { toast } = useToast();
 
   const myHash = useMemo(() => getAnonymousUserId(userId), [userId]);
@@ -909,6 +917,8 @@ function ProfessorDetailsSection({
         );
         setReviews(cleaned.reviews);
         setReplies(cleaned.replies);
+        setHasMore(Boolean(data.hasMore));
+        setNextOffset(REVIEWS_PAGE_SIZE);
 
         // Initialize vote state from API (includes myVote)
         const initialVoteState: Record<
@@ -943,6 +953,73 @@ function ProfessorDetailsSection({
       mounted = false;
     };
   }, [professorId, myHash]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // "Carregar mais": fetch the next page and append it as a pure local-state
+  // patch — no stats refetch (statsPerCourse only ever comes from offset=0),
+  // no full reload/remount. Reviews and replies are merged deduped by id.
+  const handleLoadMore = async () => {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const data = await fetchProfessorDetails(
+        professorId,
+        myHash,
+        nextOffset,
+        REVIEWS_PAGE_SIZE,
+      );
+      const newReviews: Review[] = data.reviews || [];
+      const newReplies: ReplyObj[] = data.replies || [];
+
+      // Merge deduped by id (keep existing entries so local edits/vote patches
+      // aren't clobbered by a re-fetched copy), then re-run the orphaned
+      // soft-deleted cleanup over the full merged reply set.
+      const existingReviewIds = new Set(reviews.map((r) => r.id));
+      const mergedReviews = [
+        ...reviews,
+        ...newReviews.filter((r) => !existingReviewIds.has(r.id)),
+      ];
+      const existingReplyIds = new Set(replies.map((r) => r.id));
+      const mergedReplies = [
+        ...replies,
+        ...newReplies.filter((r) => !existingReplyIds.has(r.id)),
+      ];
+      const cleaned = cleanupOrphanedSoftDeleted(mergedReplies, mergedReviews);
+      setReviews(cleaned.reviews);
+      setReplies(cleaned.replies);
+
+      // Patch vote state for newly-loaded ids only — never overwrite an entry
+      // already present locally (it may hold a pending optimistic vote).
+      setVoteState((prev) => {
+        const next = { ...prev };
+        for (const item of [...newReviews, ...newReplies] as Array<{
+          id: string;
+          upvotes?: number;
+          downvotes?: number;
+          myVote?: 1 | -1 | 0;
+        }>) {
+          if (!(item.id in next)) {
+            next[item.id] = {
+              upvotes: item.upvotes ?? 0,
+              downvotes: item.downvotes ?? 0,
+              myVote: (item.myVote ?? 0) as 1 | -1 | 0,
+            };
+          }
+        }
+        return next;
+      });
+
+      setNextOffset((o) => o + REVIEWS_PAGE_SIZE);
+      setHasMore(Boolean(data.hasMore));
+    } catch (err: any) {
+      toast({
+        title: "Erro ao carregar mais avaliações",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const handleDeleteTopLevelReview = async (reviewId: string) => {
     const target = reviews.find((r) => r.id === reviewId);
@@ -1576,6 +1653,27 @@ function ProfessorDetailsSection({
                   </>
                 );
               })()}
+
+              {/* Load-more: additive pagination, never a full reload */}
+              {hasMore && (
+                <div className="flex justify-center pt-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleLoadMore}
+                    disabled={loadingMore}
+                  >
+                    {loadingMore ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" />
+                        Carregando...
+                      </>
+                    ) : (
+                      "Carregar mais"
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
           </motion.div>
         )}
