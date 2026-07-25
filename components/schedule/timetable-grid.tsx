@@ -26,6 +26,10 @@ interface TimetableGridProps {
   // Custom events are drawn as a free-positioned, draggable overlay (not in
   // cells), so they can sit at any time and move across the grid.
   customEntries: CustomScheduleEntry[];
+  // Occupied class-section time ranges per weekday, forwarded to the overlay so
+  // custom events overlapping a class share the column width instead of hiding
+  // it. Pure pass-through — the grid itself doesn't read it.
+  classIntervalsByDay?: Record<number, { startMin: number; endMin: number }[]>;
   getCourseColor: (courseId: string) => string;
   onEmptyCellClick: (day: number, slotId: string) => void;
   onCustomEntryClick: (entry: CustomScheduleEntry) => void;
@@ -44,6 +48,7 @@ interface TimetableGridProps {
 const TimetableGrid = React.memo(function TimetableGrid({
   courseSchedule,
   customEntries,
+  classIntervalsByDay,
   getCourseColor,
   onEmptyCellClick,
   onCustomEntryClick,
@@ -168,6 +173,7 @@ const TimetableGrid = React.memo(function TimetableGrid({
         <CustomEventsOverlay
           entries={customEntries}
           tbodyRef={tbodyRef}
+          classIntervalsByDay={classIntervalsByDay}
           onEntryClick={onCustomEntryClick}
           onEntryMove={onCustomEntryMove}
         />
