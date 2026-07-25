@@ -12,15 +12,15 @@
 | Gate 2 (approval to open PR) | ⬜ pending |
 
 ## Tasks
-| # | Task | Story | State |
-|---|---|---|---|
-| T1 | refactor(curriculum): export isRealElective predicate | US-2 | ⬜ |
-| T2 | feat(plan-generator): compute remaining complementares/optativas hours | US-2 | ⬜ |
-| T3 | fix(plan-generator): modal reminder copy for remaining hours | US-2 | ⬜ |
-| T4 | fix(professors): scope reply drafts per target | US-3 | ⬜ |
-| T5 | feat(professors): paginate professor-details reviews endpoint | US-1 | ⬜ |
-| T6 | feat(professors): "carregar mais" load-more in dialog | US-1 | ⬜ |
-| T7 | docs(professors): mark already-fixed rating issues resolved | — | ⬜ |
+| # | Task | Story | State | Commit |
+|---|---|---|---|---|
+| T1 | refactor(curriculum): export isRealElective predicate | US-2 | ✅ | `1c25133` |
+| T2 | feat(plan-generator): compute remaining complementares/optativas hours | US-2 | ✅ | |
+| T3 | fix(plan-generator): modal reminder copy for remaining hours | US-2 | ⬜ | |
+| T4 | fix(professors): scope reply drafts per target | US-3 | ⬜ | |
+| T5 | feat(professors): paginate professor-details reviews endpoint | US-1 | ⬜ | |
+| T6 | feat(professors): "carregar mais" load-more in dialog | US-1 | ⬜ | |
+| T7 | docs(professors): mark already-fixed rating issues resolved | — | ⬜ | |
 
 ## Deferred to backlog
 - US-4 scheduler real-case regression test (#22).

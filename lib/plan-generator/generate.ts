@@ -53,6 +53,7 @@ import {
 } from "@/lib/prerequisites";
 import { generateEquivalenceMap } from "@/parsers/curriculum-parser";
 import { buildRemainingCandidates, isTerminalStatus } from "@/lib/plan-generator/candidates";
+import { computeGraduationReminder } from "@/lib/plan-generator/graduation";
 import { isNightTurnoValid } from "@/lib/plan-generator/night";
 import {
   packMaxWeight,
@@ -79,16 +80,6 @@ import type {
   UnplacedCourse,
   UnplacedReason,
 } from "@/lib/plan-generator/types";
-
-/**
- * Static graduation requirements beyond the mandatory disciplines (hours of
- * atividades complementares + optativas). Surfaced on every scenario; optativas
- * scheduling is deferred to Sprint 04.
- */
-const GRADUATION_REMINDER: GraduationReminder = {
-  complementaresHours: 360,
-  optativasHours: 288,
-};
 
 /**
  * Max number of future semesters the packer will scan forward when deferring a
@@ -372,6 +363,13 @@ export interface GenerationContext {
    * INE5638 Saturday whitelist. Empty for a strict-night run.
    */
   promoted: ReadonlySet<string>;
+  /**
+   * Remaining non-discipline graduation requirements (complementares +
+   * optativas hours) computed from the student's completed/exempted history by
+   * {@link computeGraduationReminder}. Surfaced on every scenario as a reminder;
+   * strategy-independent, so it is computed once here and threaded through.
+   */
+  graduationReminder: GraduationReminder;
 }
 
 /**
@@ -425,6 +423,8 @@ export function prepareGeneration(
     bottleneckClique,
   );
 
+  const graduationReminder = computeGraduationReminder(studentInfo, courses);
+
   return {
     input,
     config,
@@ -442,6 +442,7 @@ export function prepareGeneration(
     conflictDegrees,
     cliqueCriticality,
     promoted,
+    graduationReminder,
   };
 }
 
@@ -652,7 +653,7 @@ export function packForward(
     minSemestersFloor: ctx.minSemestersFloor,
     assumesReusedFutureSchedule,
     scheduleSnapshotSemester,
-    graduationReminder: GRADUATION_REMINDER,
+    graduationReminder: ctx.graduationReminder,
     isOptimal: false,
     strategyId: strategy.id,
     config,
