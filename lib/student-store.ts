@@ -796,6 +796,15 @@ export const useStudentStore = create<StudentStore>()(
             });
           });
         }
+        // Migrate legacy custom events: single `day` → `days: number[]`.
+        if (Array.isArray(migrated?.studentInfo?.customScheduleEntries)) {
+          migrated.studentInfo.customScheduleEntries.forEach((e: any) => {
+            if (!Array.isArray(e.days)) {
+              e.days = typeof e.day === "number" ? [e.day] : [];
+            }
+            delete e.day;
+          });
+        }
         return {
           ...currentState,
           ...(migrated as object),

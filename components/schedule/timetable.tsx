@@ -17,6 +17,7 @@ import {
 import { parsescheduleData } from "@/parsers/class-parser";
 import type { ClassSchedule } from "@/parsers/class-parser";
 import { expandToCells } from "@/lib/schedule-conflict";
+import { toMinutes } from "@/lib/timetable-time";
 import { useStudentStore } from "@/lib/student-store";
 import { useCourseMap } from "@/hooks/useCourseMap";
 import { useStableValue } from "@/hooks/useStableValue";
@@ -168,7 +169,7 @@ export default function Timetable({
     setModalState({
       open: true,
       editing: false,
-      prefill: { day, startTime: slotId },
+      prefill: { days: [day], startTime: slotId },
     });
   }, []);
 
@@ -185,15 +186,15 @@ export default function Timetable({
     setLastEntry(entry);
   };
 
-  // Persist a drag: the overlay hands back the new day + start/end times.
+  // Persist a drag: the overlay hands back the new weekdays + start/end times.
   const handleCustomEntryMove = useCallback(
     (
       entry: CustomScheduleEntry,
-      day: number,
+      days: number[],
       startTime: string,
       endTime: string,
     ) => {
-      updateCustomScheduleEntry({ ...entry, day, startTime, endTime });
+      updateCustomScheduleEntry({ ...entry, days, startTime, endTime });
     },
     [updateCustomScheduleEntry],
   );
@@ -313,6 +314,25 @@ export default function Timetable({
 
     return newOverrides;
   }, [selectedPhaseCourses, timetableData]);
+
+  // Occupied class-section time ranges per weekday (day 0 = Monday), derived
+  // from the picked sections. Handed to the timetable grid → custom-events
+  // overlay so a custom event overlapping a class is packed into a narrower
+  // column beside it (#33) instead of covering it. The class table cell itself
+  // stays full-width underneath — only the overlay side narrows.
+  const classIntervalsByDay = useMemo(() => {
+    const map: Record<number, { startMin: number; endMin: number }[]> = {};
+    professorOverrides.forEach((override) => {
+      override.schedule.forEach((entry) => {
+        if (!entry.endTime) return;
+        (map[entry.day] ??= []).push({
+          startMin: toMinutes(entry.startTime),
+          endMin: toMinutes(entry.endTime),
+        });
+      });
+    });
+    return map;
+  }, [professorOverrides]);
 
   const [aggregatesRefreshKey, setAggregatesRefreshKey] = useState(0);
 
@@ -525,16 +545,18 @@ export default function Timetable({
       });
     });
 
-    // Export custom entries
+    // Export custom entries — one VEVENT per weekday the event repeats on.
     visibleCustomEntries.forEach((entry) => {
-      addEvent(
-        entry.title,
-        entry.subtitle || "",
-        entry.day,
-        entry.startTime,
-        entry.endTime,
-        "",
-      );
+      entry.days.forEach((day) => {
+        addEvent(
+          entry.title,
+          entry.subtitle || "",
+          day,
+          entry.startTime,
+          entry.endTime,
+          "",
+        );
+      });
     });
 
     icsContent += "END:VCALENDAR\r\n";
@@ -597,6 +619,7 @@ export default function Timetable({
           <TimetableGrid
             courseSchedule={courseSchedule}
             customEntries={visibleCustomEntries}
+            classIntervalsByDay={classIntervalsByDay}
             getCourseColor={getCourseColor}
             onEmptyCellClick={openNewEntry}
             onCustomEntryClick={openEditEntry}

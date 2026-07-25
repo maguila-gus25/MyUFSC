@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
@@ -39,12 +40,16 @@ type GestureMode = "move" | "resize";
 interface Gesture {
   id: string;
   mode: GestureMode;
+  // Active day of the dragged box. Only changes on horizontal drag, which is
+  // permitted only for single-day entries (canMoveDay). Multi-day entries lock
+  // their weekday set — a body drag adjusts the shared time range only.
   day: number;
   startMin: number;
   endMin: number;
   origDay: number;
   origStartMin: number;
   origEndMin: number;
+  canMoveDay: boolean;
   moved: boolean;
 }
 
@@ -55,14 +60,34 @@ interface Geometry {
   height: number;
 }
 
+// A half-open [startMin, endMin) minute interval — either an occupied class
+// section (from the grid underneath) or a custom event box.
+interface Interval {
+  startMin: number;
+  endMin: number;
+}
+
+// Result of the per-day column packing for a single (entry × day) box: which
+// sub-column it lives in and how many columns its cluster was split into.
+interface BoxSlot {
+  subColIndex: number;
+  cols: number;
+}
+
 interface CustomEventsOverlayProps {
   entries: CustomScheduleEntry[];
   // The <tbody> of the timetable — measured to align the overlay with the grid.
   tbodyRef: React.RefObject<HTMLTableSectionElement | null>;
+  // Occupied class-section time ranges per weekday (day 0 = Monday). Overlapping
+  // custom events are packed into columns to the RIGHT of these, so a custom
+  // event that clashes with a class shares the column's width with it instead of
+  // hiding it. The class table cell underneath stays full-width (a non-goal to
+  // shrink it).
+  classIntervalsByDay?: Record<number, Interval[]>;
   onEntryClick: (entry: CustomScheduleEntry) => void;
   onEntryMove: (
     entry: CustomScheduleEntry,
-    day: number,
+    days: number[],
     startTime: string,
     endTime: string,
   ) => void;
@@ -76,6 +101,7 @@ interface CustomEventsOverlayProps {
 export default function CustomEventsOverlay({
   entries,
   tbodyRef,
+  classIntervalsByDay,
   onEntryClick,
   onEntryMove,
 }: CustomEventsOverlayProps) {
@@ -116,9 +142,14 @@ export default function CustomEventsOverlay({
   useEffect(() => {
     if (!pending) return;
     const e = entries.find((x) => x.id === pending.id);
+    // Multi-day entries keep their weekday set across a drag, so only the shared
+    // time range needs to match; single-day entries also match the moved day.
+    const daysMatch = pending.canMoveDay
+      ? e?.days.length === 1 && e.days[0] === pending.day
+      : true;
     if (
       e &&
-      e.day === pending.day &&
+      daysMatch &&
       toMinutes(e.startTime) === pending.startMin &&
       toMinutes(e.endTime) === pending.endMin
     ) {
@@ -132,8 +163,93 @@ export default function CustomEventsOverlay({
   const rowHeight = geo ? geo.height / TOTAL_ROWS : 0;
   const pxPerMin = rowHeight / SLOT_SPAN_MIN;
 
+  // Side-by-side layout (#33). Per weekday column, greedily pack that day's
+  // overlapping boxes into sub-columns so they render next to each other instead
+  // of all stacking at full width. Class-section intervals are seeded first so
+  // they claim the leftmost sub-columns and a clashing custom event is pushed to
+  // a narrower column on the right (both stay visible/clickable).
+  //
+  // Keyed by `[entries, classIntervalsByDay]` — deliberately NOT on the live
+  // `gesture`/`pending`, so a drag never re-packs every frame; the box being
+  // dragged just keeps (or falls back from) its resting slot.
+  const boxSlots = useMemo(() => {
+    const slots = new Map<string, BoxSlot>();
+
+    for (let day = 0; day < dayCount; day++) {
+      // Each item is a box on this day; `key` is null for class intervals, which
+      // reserve columns but are never rendered by this overlay.
+      type Item = Interval & { key: string | null; isClass: boolean };
+      const items: Item[] = [];
+
+      for (const ci of classIntervalsByDay?.[day] ?? []) {
+        items.push({ ...ci, key: null, isClass: true });
+      }
+      for (const entry of entries) {
+        if (!entry.days.includes(day)) continue;
+        items.push({
+          startMin: toMinutes(entry.startTime),
+          endMin: toMinutes(entry.endTime),
+          key: `${entry.id}-${day}`,
+          isClass: false,
+        });
+      }
+      if (items.length === 0) continue;
+
+      // Sort by start asc, then end desc; on a full tie, class before custom so
+      // classes always take the leftmost column.
+      items.sort(
+        (a, b) =>
+          a.startMin - b.startMin ||
+          b.endMin - a.endMin ||
+          (a.isClass === b.isClass ? 0 : a.isClass ? -1 : 1),
+      );
+
+      // Flush one cluster [from, to): assign each item to the first column whose
+      // last box ended at/before this box's start, else open a new column. Every
+      // box in the cluster shares the same `cols` (equal width).
+      const flush = (from: number, to: number) => {
+        const columnEnds: number[] = [];
+        const assigned: number[] = [];
+        for (let i = from; i < to; i++) {
+          const item = items[i];
+          let col = columnEnds.findIndex((end) => end <= item.startMin);
+          if (col === -1) col = columnEnds.length;
+          columnEnds[col] = item.endMin;
+          assigned[i - from] = col;
+        }
+        const cols = columnEnds.length;
+        for (let i = from; i < to; i++) {
+          const { key } = items[i];
+          if (key) slots.set(key, { subColIndex: assigned[i - from], cols });
+        }
+      };
+
+      // Cluster: a new cluster starts once a box begins at/after the running max
+      // end of every box seen so far in the current cluster.
+      let clusterStart = 0;
+      let maxEnd = items[0].endMin;
+      for (let i = 1; i < items.length; i++) {
+        if (items[i].startMin >= maxEnd) {
+          flush(clusterStart, i);
+          clusterStart = i;
+          maxEnd = items[i].endMin;
+        } else {
+          maxEnd = Math.max(maxEnd, items[i].endMin);
+        }
+      }
+      flush(clusterStart, items.length);
+    }
+
+    return slots;
+  }, [entries, classIntervalsByDay, dayCount]);
+
   const handlePointerDown = useCallback(
-    (e: ReactPointerEvent, entry: CustomScheduleEntry, mode: GestureMode) => {
+    (
+      e: ReactPointerEvent,
+      entry: CustomScheduleEntry,
+      day: number,
+      mode: GestureMode,
+    ) => {
       e.stopPropagation();
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
       pointerStart.current = { x: e.clientX, y: e.clientY };
@@ -142,12 +258,13 @@ export default function CustomEventsOverlay({
       const next: Gesture = {
         id: entry.id,
         mode,
-        day: entry.day,
+        day,
         startMin,
         endMin,
-        origDay: entry.day,
+        origDay: day,
         origStartMin: startMin,
         origEndMin: endMin,
+        canMoveDay: entry.days.length === 1,
         moved: false,
       };
       gestureRef.current = next;
@@ -181,11 +298,14 @@ export default function CustomEventsOverlay({
         const endMin = Math.min(GRID_END_MIN, g.origStartMin + duration);
         next = { ...g, endMin, moved: true };
       } else {
-        // Body → move across days (whole columns) and times (grid rows).
-        const day = Math.max(
-          0,
-          Math.min(dayCount - 1, g.origDay + Math.round(dx / colWidth)),
-        );
+        // Body → move across times (grid rows); day-change is allowed only for
+        // single-day entries (multi-day weekday sets are edited via the modal).
+        const day = g.canMoveDay
+          ? Math.max(
+              0,
+              Math.min(dayCount - 1, g.origDay + Math.round(dx / colWidth)),
+            )
+          : g.origDay;
         const duration = g.origEndMin - g.origStartMin;
         const rawStart = rowsToMinutes(
           minutesToRows(g.origStartMin) + dy / rowHeight,
@@ -218,7 +338,10 @@ export default function CustomEventsOverlay({
       if (g.moved) {
         // Hold the new position optimistically until props catch up.
         setPending(g);
-        onEntryMove(entry, g.day, toHHMM(g.startMin), toHHMM(g.endMin));
+        // Single-day entries may have moved to a new weekday; multi-day sets are
+        // locked, so their days pass through unchanged.
+        const newDays = g.canMoveDay ? [g.day] : entry.days;
+        onEntryMove(entry, newDays, toHHMM(g.startMin), toHHMM(g.endMin));
       } else if (g.mode === "move") {
         // A press that never crossed the threshold is a click → edit.
         onEntryClick(entry);
@@ -234,76 +357,96 @@ export default function CustomEventsOverlay({
       className="pointer-events-none absolute z-10"
       style={{ top: geo.top, left: geo.left, width: geo.width, height: geo.height }}
     >
-      {entries.map((entry) => {
+      {entries.flatMap((entry) => {
         const active =
           gesture?.id === entry.id
             ? gesture
             : pending?.id === entry.id
               ? pending
               : null;
-        const day = active ? active.day : entry.day;
         const startMin = active ? active.startMin : toMinutes(entry.startTime);
         const endMin = active ? active.endMin : toMinutes(entry.endTime);
         const isDragging = gesture?.id === entry.id;
 
         const top = minutesToRows(startMin) * rowHeight;
         // Height is a pure function of duration → constant while moving.
-        const height = Math.max(pxPerMin * MIN_EVENT_MIN, (endMin - startMin) * pxPerMin);
-        const left = TIME_COL_WIDTH + day * colWidth;
+        const height = Math.max(
+          pxPerMin * MIN_EVENT_MIN,
+          (endMin - startMin) * pxPerMin,
+        );
 
-        return (
-          <div
-            key={entry.id}
-            role="button"
-            tabIndex={0}
-            className={cn(
-              CSS_CLASSES.TIMETABLE_COURSE,
-              "pointer-events-auto absolute select-none overflow-hidden rounded-md px-1.5 py-1 shadow-sm ring-1 ring-black/10 touch-none",
-              "cursor-grab active:cursor-grabbing transition-shadow",
-              isDragging && "z-20 shadow-lg ring-2 ring-foreground/40 opacity-95",
-              entry.color,
-            )}
-            style={{
-              top,
-              left: left + 1,
-              width: colWidth - 2,
-              height: height - 1,
-            }}
-            onPointerDown={(e) => handlePointerDown(e, entry, "move")}
-            onPointerMove={handlePointerMove}
-            onPointerUp={(e) => handlePointerUp(e, entry)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onEntryClick(entry);
-              }
-            }}
-          >
-            {/* Title on its own line so it never gets squeezed by the time,
-                which sits on the second line (like a calendar event). */}
-            <div className="text-[0.75rem] font-bold leading-tight truncate">
-              {entry.title}
-            </div>
-            <div className="text-[0.625rem] font-medium opacity-80 tabular-nums leading-tight truncate">
-              {toHHMM(startMin)}–{toHHMM(endMin)}
-            </div>
-            {entry.subtitle && height > pxPerMin * 45 && (
-              <div className="text-[0.7rem] leading-tight truncate opacity-90">
-                {entry.subtitle}
-              </div>
-            )}
+        // One box per weekday the event repeats on. While a single-day entry is
+        // being dragged horizontally, its (single) box follows the active day;
+        // multi-day boxes stay pinned to their own weekdays (day-move locked).
+        const renderDays =
+          active && active.canMoveDay ? [active.day] : entry.days;
 
-            {/* Bottom resize handle — drag to change the end time. */}
+        return renderDays.map((day) => {
+          // Resting slot for this box; a box dragged onto a new day (where it has
+          // no packed slot yet) falls back to full column width.
+          const slot = boxSlots.get(`${entry.id}-${day}`) ?? {
+            subColIndex: 0,
+            cols: 1,
+          };
+          const boxWidth = colWidth / slot.cols;
+          const left = TIME_COL_WIDTH + day * colWidth + slot.subColIndex * boxWidth;
+          return (
             <div
-              className="absolute inset-x-0 bottom-0 h-2 cursor-ns-resize"
-              onPointerDown={(e) => handlePointerDown(e, entry, "resize")}
+              key={`${entry.id}-${day}`}
+              role="button"
+              tabIndex={0}
+              className={cn(
+                CSS_CLASSES.TIMETABLE_COURSE,
+                "pointer-events-auto absolute select-none overflow-hidden rounded-md px-1.5 py-1 shadow-sm ring-1 ring-black/10 touch-none",
+                "cursor-grab active:cursor-grabbing transition-shadow",
+                isDragging &&
+                  "z-20 shadow-lg ring-2 ring-foreground/40 opacity-95",
+                entry.color,
+              )}
+              style={{
+                top,
+                left: left + 1,
+                width: boxWidth - 2,
+                height: height - 1,
+              }}
+              onPointerDown={(e) => handlePointerDown(e, entry, day, "move")}
               onPointerMove={handlePointerMove}
               onPointerUp={(e) => handlePointerUp(e, entry)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onEntryClick(entry);
+                }
+              }}
             >
-              <div className="mx-auto mt-0.5 h-0.5 w-6 rounded-full bg-current opacity-40" />
+              {/* Title on its own line so it never gets squeezed by the time,
+                  which sits on the second line (like a calendar event). */}
+              <div className="text-[0.75rem] font-bold leading-tight truncate">
+                {entry.title}
+              </div>
+              <div className="text-[0.625rem] font-medium opacity-80 tabular-nums leading-tight truncate">
+                {toHHMM(startMin)}–{toHHMM(endMin)}
+              </div>
+              {entry.subtitle && height > pxPerMin * 45 && (
+                <div className="text-[0.7rem] leading-tight truncate opacity-90">
+                  {entry.subtitle}
+                </div>
+              )}
+
+              {/* Bottom resize handle — drag to change the end time. */}
+              <div
+                className="absolute inset-x-0 bottom-0 h-2 cursor-ns-resize"
+                onPointerDown={(e) =>
+                  handlePointerDown(e, entry, day, "resize")
+                }
+                onPointerMove={handlePointerMove}
+                onPointerUp={(e) => handlePointerUp(e, entry)}
+              >
+                <div className="mx-auto mt-0.5 h-0.5 w-6 rounded-full bg-current opacity-40" />
+              </div>
             </div>
-          </div>
-        );
+          );
+        });
       })}
     </div>
   );

@@ -170,11 +170,15 @@ Personal calendar events (`CustomScheduleEntry`) are stored in `studentInfo.cust
 - `recurring = true` → shown in every phase view
 - `recurring = false` → shown only in `scopedToPhase` (the phase active when created)
 
-The `CustomEventModal` allows creating and editing events with title, subtitle, day, start/end time, color, and recurrence settings.
+**Weekdays (`days: number[]`).** A single custom event can recur on multiple weekdays that share one start/end time range. The entry carries `days: number[]` (day 0 = Monday … 5 = Saturday) — one box is rendered per weekday in the set. Legacy entries stored the old single `day: number` field; those migrate in place on hydration in `student-store.ts`'s persist `merge()` (`e.days = typeof e.day === "number" ? [e.day] : []`, then `delete e.day`).
+
+The `CustomEventModal` allows creating and editing events with title, subtitle, one or more days (multi-select toggle buttons), start/end time, color, and recurrence settings. Save requires at least one day selected.
+
+**Side-by-side overlap layout (`custom-events-overlay.tsx`).** Custom events are drawn in a free-positioned overlay above the grid, not in table cells. When events overlap in time on the same weekday they render next to each other via per-weekday greedy interval column-packing: for each day, boxes are sorted by start time, clustered on non-overlap, and each box is assigned to the first free sub-column (opening a new one when none is free); every box in a cluster shares the cluster's column count, so `width = colWidth / cols`. The class-section intervals for that day (`classIntervalsByDay`, derived from `professorOverrides` in `timetable.tsx` and passed through `TimetableGrid` as a pure pass-through prop) seed the leftmost columns, so a custom event overlapping a class is pushed into a narrower right-hand sub-column while the class table cell underneath stays full-width and untouched. A single-day, non-overlapping event resolves to `cols = 1` → full column width. Packing is memoized on `[entries, classIntervalsByDay]` — deliberately not on the live gesture — so an in-progress drag never re-packs every frame; drag/resize hit-testing uses pointer capture taken on `pointerdown`, independent of box width. (Class-vs-class side-by-side is handled separately by `timetable-grid.tsx`'s flex row inside the cell.)
 
 ### Calendar Export
 
-`handleExportCalendar` generates an `.ics` file (iCalendar format) containing all scheduled courses and custom events as weekly recurring `VEVENT` entries. Events recur until the end of the current semester (Aug 1 for semester 1, Dec 25 for semester 2). The file is offered as a download via a temporary object URL.
+`handleExportCalendar` generates an `.ics` file (iCalendar format) containing all scheduled courses and custom events as weekly recurring `VEVENT` entries. Events recur until the end of the current semester (Aug 1 for semester 1, Dec 25 for semester 2). A multi-weekday custom event emits **one VEVENT per selected weekday** (iterating `entry.days`), each sharing the event's time range. The file is offered as a download via a temporary object URL.
 
 ### Professor Aggregates
 

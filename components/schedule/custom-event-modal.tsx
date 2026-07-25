@@ -8,13 +8,6 @@ import type { CustomScheduleEntry } from "@/types/student-plan";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Copy, Trash2, X } from "lucide-react";
 import { toHHMM, toMinutes } from "@/lib/timetable-time";
@@ -51,7 +44,7 @@ export default function CustomEventModal({
   const defaultStart = initialEntry?.startTime ?? TIMETABLE.TIME_SLOTS[0].id;
   const [title, setTitle] = useState(initialEntry?.title ?? "");
   const [subtitle, setSubtitle] = useState(initialEntry?.subtitle ?? "");
-  const [day, setDay] = useState<number>(initialEntry?.day ?? 0);
+  const [days, setDays] = useState<number[]>(initialEntry?.days ?? []);
   const [startTime, setStartTime] = useState(defaultStart);
   const [endTime, setEndTime] = useState(
     initialEntry?.endTime ?? defaultEnd(defaultStart),
@@ -67,7 +60,7 @@ export default function CustomEventModal({
       // eslint-disable-next-line react-hooks/set-state-in-effect -- deferred: avoidable derived-state effect, tracked in #31
       setTitle(initialEntry?.title ?? "");
       setSubtitle(initialEntry?.subtitle ?? "");
-      setDay(initialEntry?.day ?? 0);
+      setDays(initialEntry?.days ?? []);
       setStartTime(newStart);
       // Default end = one hour after start (unless editing an existing entry)
       setEndTime(initialEntry?.endTime ?? defaultEnd(newStart));
@@ -91,8 +84,16 @@ export default function CustomEventModal({
     if (lastEntry.color) setColor(lastEntry.color);
   };
 
+  const toggleDay = (d: number) => {
+    setDays((prev) =>
+      prev.includes(d)
+        ? prev.filter((x) => x !== d)
+        : [...prev, d].sort((a, b) => a - b),
+    );
+  };
+
   const handleSave = () => {
-    if (!title.trim()) return;
+    if (!title.trim() || days.length < 1) return;
     // Free time inputs allow end <= start; keep at least a 30-min block.
     const safeEnd =
       toMinutes(endTime) > toMinutes(startTime)
@@ -102,7 +103,7 @@ export default function CustomEventModal({
       id: initialEntry?.id ?? generateId(),
       title: title.trim(),
       subtitle: subtitle.trim() || undefined,
-      day,
+      days,
       startTime,
       endTime: safeEnd,
       color,
@@ -206,24 +207,29 @@ export default function CustomEventModal({
               />
             </div>
 
-            {/* Dia */}
+            {/* Dias */}
             <div className="grid gap-1.5">
-              <Label>Dia</Label>
-              <Select
-                value={String(day)}
-                onValueChange={(v) => setDay(Number(v))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TIMETABLE.DAYS.map((d, i) => (
-                    <SelectItem key={i} value={String(i)}>
+              <Label>Dias</Label>
+              <div className="flex gap-1.5 flex-wrap">
+                {TIMETABLE.DAYS.map((d, i) => {
+                  const selected = days.includes(i);
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => toggleDay(i)}
+                      className={`flex-1 min-w-[3rem] rounded-md border px-2 py-1.5 text-sm font-medium transition-colors ${
+                        selected
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                      }`}
+                    >
                       {d}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Início / Fim — free times (any minute), no longer snapped to
@@ -311,7 +317,10 @@ export default function CustomEventModal({
               <Button variant="outline" onClick={onClose}>
                 Cancelar
               </Button>
-              <Button onClick={handleSave} disabled={!title.trim()}>
+              <Button
+                onClick={handleSave}
+                disabled={!title.trim() || days.length < 1}
+              >
                 {isEditing ? "Salvar" : "Adicionar"}
               </Button>
             </div>
