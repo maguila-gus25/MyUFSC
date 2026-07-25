@@ -30,13 +30,14 @@ export default function ConnectionLines({
   courseElements,
 }: ConnectionLinesProps) {
   const svgRef = useRef<SVGSVGElement>(null);
-  // Line endpoints come from getBoundingClientRect() (viewport-relative) and the
-  // SVG is position:fixed, so a re-render is needed to reposition them whenever
-  // the page scrolls or resizes — otherwise the lines stay pinned to the viewport
-  // while the course boxes move. `tick` forces that re-render (rAF-throttled).
+  // Endpoints are computed in *page* coordinates (getBoundingClientRect + scroll
+  // offset) and the SVG is position:absolute, so it scrolls natively with the
+  // course boxes — no per-frame JS, so the lines stay perfectly locked (no jitter)
+  // instead of swimming to catch up with the scroll. Only a resize needs a
+  // recompute (layout reflow moves the boxes).
   const [, setTick] = useState(0);
   // Once the initial draw animation has played, later re-renders paint the lines
-  // fully drawn (no re-animation flicker on every scroll frame).
+  // fully drawn (no re-animation flicker on a recompute).
   const [hasAnimated, setHasAnimated] = useState(false);
 
   useEffect(() => {
@@ -45,12 +46,10 @@ export default function ConnectionLines({
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => setTick((t) => t + 1));
     };
-    window.addEventListener("scroll", reposition, true);
     window.addEventListener("resize", reposition);
     // Longest line animation = depth*0.2s delay + 0.2s draw; settle after ~1s.
     const doneId = setTimeout(() => setHasAnimated(true), 1000);
     return () => {
-      window.removeEventListener("scroll", reposition, true);
       window.removeEventListener("resize", reposition);
       cancelAnimationFrame(raf);
       clearTimeout(doneId);
@@ -82,11 +81,15 @@ export default function ConnectionLines({
         const colorIndex = Math.min(connection.depth, palette.length - 1);
         const strokeColor = palette[colorIndex];
 
-        // Calculate centers
-        const sourceCenterX = sourceRect.left + sourceRect.width / 2;
-        const sourceCenterY = sourceRect.top + sourceRect.height / 2;
-        const targetCenterX = targetRect.left + targetRect.width / 2;
-        const targetCenterY = targetRect.top + targetRect.height / 2;
+        // Calculate centers in page coordinates (rect is viewport-relative;
+        // adding the scroll offset makes the coords absolute in the document so
+        // the position:absolute SVG scrolls with the boxes).
+        const scrollX = window.scrollX;
+        const scrollY = window.scrollY;
+        const sourceCenterX = sourceRect.left + sourceRect.width / 2 + scrollX;
+        const sourceCenterY = sourceRect.top + sourceRect.height / 2 + scrollY;
+        const targetCenterX = targetRect.left + targetRect.width / 2 + scrollX;
+        const targetCenterY = targetRect.top + targetRect.height / 2 + scrollY;
 
         // Calculate vector between centers
         const dx = targetCenterX - sourceCenterX;
@@ -166,8 +169,9 @@ export default function ConnectionLines({
 
   return (
     <svg
-      className="fixed inset-0 pointer-events-none z-[15]"
-      style={{ width: "100vw", height: "100vh" }}
+      ref={svgRef}
+      className="absolute top-0 left-0 pointer-events-none z-[15]"
+      style={{ width: "100%", height: "100%", overflow: "visible" }}
     >
       <defs>
         <style>{`@keyframes drawLine { to { stroke-dashoffset: 0; } }`}</style>
