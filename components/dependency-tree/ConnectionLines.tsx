@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Connection } from "@/hooks/useDependencyGraph";
 
 // Color gradient for prerequisite (backward) depths
@@ -30,11 +31,13 @@ export default function ConnectionLines({
   courseElements,
 }: ConnectionLinesProps) {
   const svgRef = useRef<SVGSVGElement>(null);
-  // Endpoints are computed in *page* coordinates (getBoundingClientRect + scroll
-  // offset) and the SVG is position:absolute, so it scrolls natively with the
-  // course boxes — no per-frame JS, so the lines stay perfectly locked (no jitter)
-  // instead of swimming to catch up with the scroll. Only a resize needs a
-  // recompute (layout reflow moves the boxes).
+  // The SVG is portaled INTO the `.dashboard-content` scroll-content container
+  // that holds the course boxes, and endpoints are computed relative to that
+  // container. So the lines share the boxes' coordinate space and scroll with
+  // them natively in BOTH directions — the panels scroll internally via
+  // overflow-auto, so window scroll offsets don't capture horizontal movement.
+  // No per-frame JS, so the lines stay perfectly locked (no jitter). Only a
+  // resize needs a recompute (layout reflow moves the boxes).
   const [, setTick] = useState(0);
   // Once the initial draw animation has played, later re-renders paint the lines
   // fully drawn (no re-animation flicker on a recompute).
@@ -56,9 +59,19 @@ export default function ConnectionLines({
     };
   }, []);
 
+  // The scroll-content container the course boxes live in. All connected boxes
+  // share one `.dashboard-content` (per useDashboardRef, which scopes the tree
+  // to a single dashboard panel). Portaling the SVG here makes it scroll with them.
+  const firstEl = courseElements.values().next().value?.[0] as
+    | Element
+    | undefined;
+  const container =
+    (firstEl?.closest(".dashboard-content") as HTMLElement | null) ?? null;
+
   // Calculate connection line positions
   const calculateConnectionLines = () => {
-    if (courseElements.size === 0) return null;
+    if (!container || courseElements.size === 0) return null;
+    const containerRect = container.getBoundingClientRect();
 
     const lines = connections
       .map((connection, index) => {
@@ -81,15 +94,18 @@ export default function ConnectionLines({
         const colorIndex = Math.min(connection.depth, palette.length - 1);
         const strokeColor = palette[colorIndex];
 
-        // Calculate centers in page coordinates (rect is viewport-relative;
-        // adding the scroll offset makes the coords absolute in the document so
-        // the position:absolute SVG scrolls with the boxes).
-        const scrollX = window.scrollX;
-        const scrollY = window.scrollY;
-        const sourceCenterX = sourceRect.left + sourceRect.width / 2 + scrollX;
-        const sourceCenterY = sourceRect.top + sourceRect.height / 2 + scrollY;
-        const targetCenterX = targetRect.left + targetRect.width / 2 + scrollX;
-        const targetCenterY = targetRect.top + targetRect.height / 2 + scrollY;
+        // Calculate centers relative to the container's content box. Both rects
+        // are viewport-relative and shift together on scroll, so the difference
+        // is the box's stable offset within `.dashboard-content` — where the
+        // portaled SVG is anchored, so lines track the boxes under any scroll.
+        const sourceCenterX =
+          sourceRect.left - containerRect.left + sourceRect.width / 2;
+        const sourceCenterY =
+          sourceRect.top - containerRect.top + sourceRect.height / 2;
+        const targetCenterX =
+          targetRect.left - containerRect.left + targetRect.width / 2;
+        const targetCenterY =
+          targetRect.top - containerRect.top + targetRect.height / 2;
 
         // Calculate vector between centers
         const dx = targetCenterX - sourceCenterX;
@@ -167,7 +183,9 @@ export default function ConnectionLines({
     return lines;
   };
 
-  return (
+  if (!container) return null;
+
+  return createPortal(
     <svg
       ref={svgRef}
       className="absolute top-0 left-0 pointer-events-none z-[15]"
@@ -177,6 +195,7 @@ export default function ConnectionLines({
         <style>{`@keyframes drawLine { to { stroke-dashoffset: 0; } }`}</style>
       </defs>
       {calculateConnectionLines()}
-    </svg>
+    </svg>,
+    container,
   );
 }

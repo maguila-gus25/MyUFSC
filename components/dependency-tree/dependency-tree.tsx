@@ -98,14 +98,12 @@ export default function DependencyTree({
             coursesDepth={coursesDepth}
           />
           
-          {/* Connection Lines */}
-          {createPortal(
-            <ConnectionLines
-              connections={connections}
-              courseElements={courseElements}
-            />,
-            document.body
-          )}
+          {/* Connection Lines — self-portals into the `.dashboard-content`
+              scroll container so the lines scroll natively with the courses. */}
+          <ConnectionLines
+            connections={connections}
+            courseElements={courseElements}
+          />
           
           {/* Info Banner */}
           {createPortal(
