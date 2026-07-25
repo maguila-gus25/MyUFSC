@@ -9,7 +9,7 @@
 | Gate 1 (approval to build) | ✅ approved (2026-07-25) — US-1/2/3, stretch US-4 deferred |
 | Run (engineers implement) | ✅ done — all 7 tasks landed |
 | Review (lint / build / test / acceptance) | ✅ done — all green (see `review.md`) |
-| Gate 2 (approval to open PR) | ⬜ pending |
+| Gate 2 (approval to open PR) | ✅ approved — **PR [#39](https://github.com/maguila-gus25/MyUFSC/pull/39)** opened into fork `main` |
 
 ## Tasks
 | # | Task | Story | State | Commit |
