@@ -247,12 +247,15 @@ uppercase → collapse whitespace → trim. `isTextClean(text)` = hardcoded PT-B
 profanity/hate-speech wordlist, word-boundary regex, checked server-side before insert.
 
 Known architecture issues (don't repeat these when extending — see
-`docs/professor-rating-architecture-issues.md` for full list, 20+ items): full
-`refreshKey` reload on every mutation instead of local patch; `myVote` sometimes not
-threaded through so vote state resets on dialog close; `ProfessorSearch` results never
-invalidated after a review is submitted; no pagination on reviews (`LIMIT 20` hard cap);
-two independent review-compose implementations (`ProfessorDetailsSection` inline form
-vs orphaned `WriteReviewDialog`).
+`docs/professor-rating-architecture-issues.md` for full list, 20+ items). Resolved:
+the `refreshKey` full-reload pattern (mutations now local-patch), `myVote` threading
+(returned by the details route, seeded into `voteState`), `ProfessorSearch` staleness
+(a `refreshTrigger` clears cached results on review submit), and the orphaned
+`WriteReviewDialog` / dual-compose-form duplication (removed — inline compose is the only
+path). Reviews pagination (formerly a `LIMIT 20` hard cap) is now addressed by Sprint 08
+US-1: the details route takes `?offset`/`?limit` (page-keyed cache under the
+`professor-${id}` tag) and the dialog has a "Carregar mais" load-more; one accepted gap
+remains (a user's own review on a later page isn't surfaced on first open).
 
 ## Transcript import (`parsers/transcript-parser.ts`)
 
@@ -290,8 +293,9 @@ ingestion.
   in the Zustand store — don't reintroduce a parallel hook-local `curriculumsCache`.
 - Course-status/equivalence logic duplicated between `CurriculumVisualizer` and
   `GridVisualizer`.
-- `normalizeProfessorId`/`normalizeId` duplicated across 3 files instead of importing
-  from `lib/professors.ts`.
+- `normalizeProfessorId`/`normalizeId` duplication is RESOLVED — the details route,
+  reviews route, and `professor-selector.tsx` all now import `normalizeProfessorId` from
+  `lib/professors.ts`; don't reintroduce a local copy.
 - `selectedSchedule`/`selectedStudentSchedule` are **live** — they drive the timetable's
   professor-selection stats panel (`selectSchedule`/`clearSchedule` ↔ `CourseList`/`CourseStats`);
   not dead state, don't remove them.
