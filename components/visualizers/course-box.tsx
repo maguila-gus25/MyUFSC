@@ -77,10 +77,17 @@ const CourseBox = memo(function CourseBox({
   // A drag that just ended fires a synthetic click right after pointerup;
   // this suppresses that one click so dragging doesn't also open the details panel.
   const suppressClickRef = useRef(false);
-  // Timestamp of the last click, used to detect a double-click manually (see
-  // handleCourseClick) since the box's pointerdown preventDefault suppresses the
-  // browser's synthesized dblclick event.
-  const lastClickTimeRef = useRef(0);
+  // Pending single-click timer. We detect a double-click manually (the box's
+  // pointerdown preventDefault suppresses the browser's synthesized dblclick) and
+  // defer the single-click action briefly so that when it turns out to be a
+  // double-click we can cancel it — the details panel never flashes open.
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (clickTimerRef.current !== null) clearTimeout(clickTimerRef.current);
+    };
+  }, []);
 
   const statusClass = useMemo(() => {
     if (isEmpty) return STATUS_CLASSES.EMPTY;
@@ -283,16 +290,16 @@ const CourseBox = memo(function CourseBox({
     if (suppressClickRef.current) return;
     if (isEmpty || isStub) return;
 
-    // Manual double-click detection: a second click within 300ms opens the
-    // course's prerequisite/dependency tree. We can't use React's onDoubleClick
-    // because the box's pointerdown preventDefault (needed by the custom drag
-    // engine) suppresses the browser's synthesized dblclick, while the
-    // pointer-generated click events still fire. The tree is opened by
-    // dispatching a window event (same cross-component pattern as the drag
-    // engine) that app/page.tsx — which owns the dependency-tree state — handles.
-    const now = Date.now();
-    if (now - lastClickTimeRef.current < 300) {
-      lastClickTimeRef.current = 0;
+    // Manual double-click detection (React's onDoubleClick never fires: the box's
+    // pointerdown preventDefault, needed by the custom drag engine, suppresses the
+    // browser's synthesized dblclick — while pointer-generated click events still
+    // fire). A second click while the single-click is still pending is a
+    // double-click → cancel the pending details-panel open (so it doesn't flash)
+    // and open the course's dependency tree instead, via a window event that
+    // app/page.tsx — which owns the dependency-tree state — handles.
+    if (clickTimerRef.current !== null) {
+      clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = null;
       window.dispatchEvent(
         new CustomEvent("open-dependency-tree", {
           detail: { course: studentCourse.course },
@@ -300,8 +307,12 @@ const CourseBox = memo(function CourseBox({
       );
       return;
     }
-    lastClickTimeRef.current = now;
-    selectCourse(studentCourse, studentCourse.course);
+    // First click: defer opening the details panel briefly to see if a second
+    // click (double-click) follows.
+    clickTimerRef.current = setTimeout(() => {
+      clickTimerRef.current = null;
+      selectCourse(studentCourse, studentCourse.course);
+    }, 250);
   };
 
   return (
