@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Connection } from "@/hooks/useDependencyGraph";
 
 // Color gradient for prerequisite (backward) depths
@@ -30,6 +30,32 @@ export default function ConnectionLines({
   courseElements,
 }: ConnectionLinesProps) {
   const svgRef = useRef<SVGSVGElement>(null);
+  // Line endpoints come from getBoundingClientRect() (viewport-relative) and the
+  // SVG is position:fixed, so a re-render is needed to reposition them whenever
+  // the page scrolls or resizes — otherwise the lines stay pinned to the viewport
+  // while the course boxes move. `tick` forces that re-render (rAF-throttled).
+  const [, setTick] = useState(0);
+  // Once the initial draw animation has played, later re-renders paint the lines
+  // fully drawn (no re-animation flicker on every scroll frame).
+  const [hasAnimated, setHasAnimated] = useState(false);
+
+  useEffect(() => {
+    let raf = 0;
+    const reposition = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => setTick((t) => t + 1));
+    };
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+    // Longest line animation = depth*0.2s delay + 0.2s draw; settle after ~1s.
+    const doneId = setTimeout(() => setHasAnimated(true), 1000);
+    return () => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+      cancelAnimationFrame(raf);
+      clearTimeout(doneId);
+    };
+  }, []);
 
   // Calculate connection line positions
   const calculateConnectionLines = () => {
@@ -122,11 +148,13 @@ export default function ConnectionLines({
             y2={y2}
             stroke={strokeColor}
             strokeWidth={lineWidth}
-            strokeDasharray={length}
-            strokeDashoffset={length}
+            strokeDasharray={hasAnimated ? undefined : length}
+            strokeDashoffset={hasAnimated ? 0 : length}
             style={{
               opacity: 0.4,
-              animation: `drawLine 0.2s ease-out ${connection.depth * 0.2}s forwards`,
+              animation: hasAnimated
+                ? undefined
+                : `drawLine 0.2s ease-out ${connection.depth * 0.2}s forwards`,
             }}
           />
         );
