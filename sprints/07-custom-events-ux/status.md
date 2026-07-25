@@ -6,10 +6,10 @@
 | Phase | State |
 |---|---|
 | Plan (backlog + architect plan) | ✅ done — `backlog.md`, `plan.md` |
-| Gate 1 (approval to build) | ⏳ awaiting maintainer |
-| Run (engineers implement) | ⬜ not started |
-| Review (lint / build / test / acceptance) | ⬜ not started |
-| Gate 2 (approval to open PR) | ⬜ not started |
+| Gate 1 (approval to build) | ✅ approved (2026-07-25) — day-lock multi-day, keep T5 |
+| Run (engineers implement) | ✅ done — US-1/US-2/US-3 landed (3 feat/docs commits) |
+| Review (lint / build / test / acceptance) | ✅ done — all green (see `review.md`) |
+| Gate 2 (approval to open PR) | ⏳ awaiting maintainer |
 
 ## Gate 1 — decisions requested
 1. **Horizontal drag for multi-day events** — recommend **lock day-move when `days.length>1`**
