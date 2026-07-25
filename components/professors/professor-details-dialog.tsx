@@ -498,8 +498,8 @@ function ReplyThread({
   handleVote,
   replyingTo,
   setReplyingTo,
-  replyText,
-  setReplyText,
+  replyDrafts,
+  setDraft,
   handleReplySubmit,
   handleDelete,
   editingReply,
@@ -519,8 +519,8 @@ function ReplyThread({
   handleVote: (id: string, v: 1 | -1) => void;
   replyingTo: string | null;
   setReplyingTo: (id: string | null) => void;
-  replyText: string;
-  setReplyText: (text: string) => void;
+  replyDrafts: Record<string, string>;
+  setDraft: (id: string, value: string) => void;
   handleReplySubmit: (id: string) => void;
   handleDelete: (id: string) => void;
   editingReply: string | null;
@@ -566,8 +566,8 @@ function ReplyThread({
               onVote={(v) => handleVote(reply.id, v)}
               onReply={() => setReplyingTo(reply.id)}
               isReplyOpen={replyingTo === reply.id}
-              replyText={replyText}
-              onReplyTextChange={setReplyText}
+              replyText={replyDrafts[reply.id] ?? ""}
+              onReplyTextChange={(v) => setDraft(reply.id, v)}
               onReplySubmit={() => handleReplySubmit(reply.id)}
               onReplyCancel={() => setReplyingTo(null)}
               isAuthenticated={isAuthenticated}
@@ -599,8 +599,8 @@ function ReplyThread({
                 handleVote={handleVote}
                 replyingTo={replyingTo}
                 setReplyingTo={setReplyingTo}
-                replyText={replyText}
-                setReplyText={setReplyText}
+                replyDrafts={replyDrafts}
+                setDraft={setDraft}
                 handleReplySubmit={handleReplySubmit}
                 handleDelete={handleDelete}
                 editingReply={editingReply}
@@ -721,7 +721,7 @@ function ProfessorDetailsSection({
     return map;
   }, [curriculumCache]);
 
-  const [replyText, setReplyText] = useState("");
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [editingReply, setEditingReply] = useState<string | null>(null);
   const [editReplyText, setEditReplyText] = useState("");
@@ -1029,16 +1029,21 @@ function ProfessorDetailsSection({
   };
 
   const handleReplySubmit = async (parentId: string) => {
-    if (!replyText.trim()) return;
+    const draft = replyDrafts[parentId] ?? "";
+    if (!draft.trim()) return;
     try {
-      const result = await submitReply(parentId, myHash, replyText);
+      const result = await submitReply(parentId, myHash, draft);
       setReplies((prev) => [...prev, result.reply]);
       setVoteState((s) => ({
         ...s,
         [result.reply.id]: { upvotes: 0, downvotes: 0, myVote: 0 },
       }));
       setReplyingTo(null);
-      setReplyText("");
+      setReplyDrafts((d) => {
+        const next = { ...d };
+        delete next[parentId];
+        return next;
+      });
       toast({ title: "Resposta enviada" });
     } catch (err: any) {
       toast({
@@ -1161,12 +1166,6 @@ function ProfessorDetailsSection({
       setSubmittingReview(false);
     }
   };
-
-  // Clear reply text when switching which reply box is open
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- deferred: avoidable derived-state effect, tracked in #31
-    setReplyText("");
-  }, [replyingTo]);
 
   const overallStats = useMemo(() => {
     let totalRev = 0,
@@ -1527,8 +1526,13 @@ function ProfessorDetailsSection({
                                       : undefined
                                   }
                                   isReplyOpen={replyingTo === review.id}
-                                  replyText={replyText}
-                                  onReplyTextChange={setReplyText}
+                                  replyText={replyDrafts[review.id] ?? ""}
+                                  onReplyTextChange={(v) =>
+                                    setReplyDrafts((d) => ({
+                                      ...d,
+                                      [review.id]: v,
+                                    }))
+                                  }
                                   onReplySubmit={() =>
                                     handleReplySubmit(review.id)
                                   }
@@ -1545,8 +1549,10 @@ function ProfessorDetailsSection({
                                     handleVote={handleVote}
                                     replyingTo={replyingTo}
                                     setReplyingTo={setReplyingTo}
-                                    replyText={replyText}
-                                    setReplyText={setReplyText}
+                                    replyDrafts={replyDrafts}
+                                    setDraft={(id, v) =>
+                                      setReplyDrafts((d) => ({ ...d, [id]: v }))
+                                    }
                                     handleReplySubmit={handleReplySubmit}
                                     handleDelete={handleDeleteReply}
                                     editingReply={editingReply}
