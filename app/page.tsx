@@ -33,6 +33,7 @@ export default function Home() {
   // Student Store Hook
   const storeStudentInfo = useStudentStore((s) => s.studentInfo);
   const setStoreStudentInfo = useStudentStore((s) => s.setStudentInfo);
+  const clearSelection = useStudentStore((s) => s.clearSelection);
 
   // Student Profile Hook
   const { studentInfo, isProfileLoading } = useStudentProfile({
@@ -71,6 +72,21 @@ export default function Home() {
     showDependencyTree: false,
     dependencyCourse: null,
   });
+
+  // Open the dependency tree when a course box is double-clicked. The event is
+  // dispatched by `CourseBox`; we also close the details panel (which the
+  // preceding single-clicks may have opened) so only the tree stays visible.
+  useEffect(() => {
+    const handleOpenDependencyTree = (e: Event) => {
+      const course = (e as CustomEvent<{ course: Course }>).detail?.course;
+      if (!course) return;
+      clearSelection();
+      setDependencyState({ showDependencyTree: true, dependencyCourse: course });
+    };
+    window.addEventListener("open-dependency-tree", handleOpenDependencyTree);
+    return () =>
+      window.removeEventListener("open-dependency-tree", handleOpenDependencyTree);
+  }, [clearSelection]);
 
   // Effect for handling redirection if authenticated but no studentInfo after loads
   useEffect(() => {

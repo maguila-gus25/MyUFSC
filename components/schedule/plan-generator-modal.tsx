@@ -165,6 +165,11 @@ export default function PlanGeneratorModal({
             Escolha suas preferências e gere possibilidades de plano que
             respeitam pré-requisitos, horários e o limite de créditos.
           </DialogDescription>
+          <p className="mt-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            O SisACAD já oferece um plano recomendado oficial até a formação.
+            Use este gerador como alternativa para explorar cenários que cabem
+            na sua rotina — ele não substitui o plano recomendado do curso.
+          </p>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
