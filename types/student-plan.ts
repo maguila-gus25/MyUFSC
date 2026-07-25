@@ -74,7 +74,7 @@ export interface CustomScheduleEntry {
   id: string;
   title: string;
   subtitle?: string; // optional secondary label rendered below the title
-  day: number;       // 0=Mon … 5=Sat
+  days: number[];    // weekdays the event repeats on, 0=Mon … 5=Sat
   startTime: string; // "HH:MM"
   endTime: string;   // "HH:MM"
   color: string;     // one of the TIMETABLE_COLOR_CLASSES values

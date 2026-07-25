@@ -31,7 +31,7 @@ interface TimetableGridProps {
   onCustomEntryClick: (entry: CustomScheduleEntry) => void;
   onCustomEntryMove: (
     entry: CustomScheduleEntry,
-    day: number,
+    days: number[],
     startTime: string,
     endTime: string,
   ) => void;

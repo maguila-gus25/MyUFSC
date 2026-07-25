@@ -168,7 +168,7 @@ export default function Timetable({
     setModalState({
       open: true,
       editing: false,
-      prefill: { day, startTime: slotId },
+      prefill: { days: [day], startTime: slotId },
     });
   }, []);
 
@@ -185,15 +185,15 @@ export default function Timetable({
     setLastEntry(entry);
   };
 
-  // Persist a drag: the overlay hands back the new day + start/end times.
+  // Persist a drag: the overlay hands back the new weekdays + start/end times.
   const handleCustomEntryMove = useCallback(
     (
       entry: CustomScheduleEntry,
-      day: number,
+      days: number[],
       startTime: string,
       endTime: string,
     ) => {
-      updateCustomScheduleEntry({ ...entry, day, startTime, endTime });
+      updateCustomScheduleEntry({ ...entry, days, startTime, endTime });
     },
     [updateCustomScheduleEntry],
   );
@@ -525,16 +525,18 @@ export default function Timetable({
       });
     });
 
-    // Export custom entries
+    // Export custom entries — one VEVENT per weekday the event repeats on.
     visibleCustomEntries.forEach((entry) => {
-      addEvent(
-        entry.title,
-        entry.subtitle || "",
-        entry.day,
-        entry.startTime,
-        entry.endTime,
-        "",
-      );
+      entry.days.forEach((day) => {
+        addEvent(
+          entry.title,
+          entry.subtitle || "",
+          day,
+          entry.startTime,
+          entry.endTime,
+          "",
+        );
+      });
     });
 
     icsContent += "END:VCALENDAR\r\n";
