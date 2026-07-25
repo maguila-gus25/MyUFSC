@@ -280,6 +280,20 @@ const CourseBox = memo(function CourseBox({
     if (!isEmpty && !isStub) selectCourse(studentCourse, studentCourse.course);
   };
 
+  // Double-clicking a real course opens its prerequisite/dependency tree.
+  // Dispatched as a window event (same cross-component pattern as the drag
+  // engine) so `app/page.tsx` — which owns the dependency-tree state — can react
+  // without threading a prop down through every visualizer.
+  const handleCourseDoubleClick = () => {
+    if (suppressClickRef.current) return;
+    if (isEmpty || isStub) return;
+    window.dispatchEvent(
+      new CustomEvent("open-dependency-tree", {
+        detail: { course: studentCourse.course },
+      }),
+    );
+  };
+
   return (
     <div
       ref={courseBoxRef}
@@ -299,6 +313,7 @@ const CourseBox = memo(function CourseBox({
         touchAction: isDraggable && !isEmpty ? "none" : undefined,
       }}
       onClick={handleCourseClick}
+      onDoubleClick={handleCourseDoubleClick}
       data-course-id={studentCourse.course.id}
       role={isDraggable && !isEmpty ? "button" : undefined}
       aria-label={isDraggable && !isEmpty ? `Drag course ${studentCourse.course.id}` : undefined}

@@ -55,9 +55,10 @@ export default function DependencyTree({
   // Handle global events
   useEffect(() => {
     if (!isVisible || !isReady) return
-    
-    const handleScroll = () => setDependencyState({ showDependencyTree: false, dependencyCourse: null });
 
+    // The tree persists through scrolling/panning; it is dismissed only by an
+    // explicit click outside a course box (or the close button). Double-clicking
+    // another course swaps the tree to that course instead of closing it.
     const handleOutsideClick = (e: MouseEvent) => {
       const target = e.target as Element
       if (target.closest('[data-course-id]') || target.closest('#dependency-close-button')) {
@@ -66,11 +67,9 @@ export default function DependencyTree({
       setDependencyState({ showDependencyTree: false, dependencyCourse: null });
     }
 
-    window.addEventListener('scroll', handleScroll, true)
     document.addEventListener('click', handleOutsideClick)
 
     return () => {
-      window.removeEventListener('scroll', handleScroll, true)
       document.removeEventListener('click', handleOutsideClick)
     }
   }, [isVisible, isReady, setDependencyState]) // Updated dependency array
@@ -110,7 +109,7 @@ export default function DependencyTree({
           
           {/* Info Banner */}
           {createPortal(
-            <InfoBanner message="Click anywhere or scroll to dismiss" />,
+            <InfoBanner message="Clique fora para fechar" />,
             document.body
           )}
         </>
