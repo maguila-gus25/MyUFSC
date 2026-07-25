@@ -62,15 +62,6 @@ export default function CurriculumVisualizer({
     [curriculum.courses, studentPlan.semesters, equivalenceMap],
   );
 
-  // Safeguard against rendering with invalid data
-  if (!curriculum) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Loading curriculum data...</p>
-      </div>
-    );
-  }
-
   const phaseCount = curriculum.totalPhases || phases.length || 1;
 
   // Height is measured directly (see progress-visualizer.tsx for the same
@@ -173,6 +164,18 @@ export default function CurriculumVisualizer({
     }
     return result;
   }, [phases, curriculum.courses, mappedCurriculumCourses, highlightAvailableForPhase, studentInfo, equivalenceMap, blocksCounts]);
+
+  // Safeguard against rendering with invalid data. Placed after every hook (not
+  // between them) so no hook is called conditionally (rules-of-hooks). In
+  // practice this never fires today — earlier hooks already dereference
+  // `curriculum`, so a null would have thrown first.
+  if (!curriculum) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-muted-foreground">Loading curriculum data...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col w-full h-full">

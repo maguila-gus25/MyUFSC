@@ -743,6 +743,7 @@ function ProfessorDetailsSection({
 
   // Refs for debounced voting — stable across renders
   const voteStateRef = useRef(voteState);
+  // eslint-disable-next-line react-hooks/refs -- mirror latest state into a ref so the debounced vote callbacks read fresh values without re-subscribing
   voteStateRef.current = voteState; // Always up-to-date
   const pendingVotes = useRef<Record<string, 0 | 1 | -1>>({});
   const voteTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -753,6 +754,7 @@ function ProfessorDetailsSection({
   // Clear all pending vote timers when the dialog unmounts
   useEffect(() => {
     return () => {
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount-only cleanup; reading voteTimers.current at unmount clears whatever timers are pending then (capturing at mount would be empty)
       for (const timer of Object.values(voteTimers.current)) clearTimeout(timer);
     };
   }, []);
@@ -880,6 +882,7 @@ function ProfessorDetailsSection({
 
   useEffect(() => {
     let mounted = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- external sync: loading flag for async professor-details fetch
     setLoading(true);
 
     fetchProfessorDetails(professorId, myHash)
@@ -1161,6 +1164,7 @@ function ProfessorDetailsSection({
 
   // Clear reply text when switching which reply box is open
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- deferred: avoidable derived-state effect, tracked in #31
     setReplyText("");
   }, [replyingTo]);
 

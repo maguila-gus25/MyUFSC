@@ -110,7 +110,10 @@ export default function Timetable({
   const setCourseClass = useStudentStore((s) => s.setCourseClass);
   const clearSchedule = useStudentStore((s) => s.clearSchedule);
 
-  const customScheduleEntries = studentInfo?.customScheduleEntries || [];
+  const customScheduleEntries = useMemo(
+    () => studentInfo?.customScheduleEntries || [],
+    [studentInfo?.customScheduleEntries],
+  );
 
   const {
     scheduleData,
@@ -335,7 +338,6 @@ export default function Timetable({
         .then((data) => setProfessorAggregates(data))
         .catch(console.error);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPhaseCourseIdsKey, aggregatesRefreshKey]);
 
   const handleProfessorSelect = (
@@ -416,7 +418,7 @@ export default function Timetable({
     // Custom events are no longer placed in cells — they render in the
     // free-positioned, draggable overlay (see CustomEventsOverlay).
     return schedule;
-  }, [selectedPhaseCourses, professorOverrides]);
+  }, [selectedPhaseCourses, professorOverrides, courseMap]);
 
   const courseColorMap = useMemo(() => {
     selectedPhaseCourses.forEach((course) => {

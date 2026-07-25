@@ -159,7 +159,7 @@ export default function GridVisualizer({
     const heightOfBoxes = totalRows * COURSE_BOX.HEIGHT;
     const heightOfMargins = (totalRows - 1) * COURSE_BOX.MARGIN;
     return GRID.PADDING * 2 + heightOfBoxes + heightOfMargins;
-  }, [totalRows, columns]); // Added columns to dependencies as totalRows depends on it
+  }, [totalRows]);
 
   return (
     <div className="flex flex-col w-full h-full">

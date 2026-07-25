@@ -53,7 +53,6 @@ export default function Home() {
   const { scheduleState, setScheduleState, isScheduleLoading } = useSchedule({
     studentInfo,
     isProfileLoading,
-    isCurriculumLoading,
   });
 
   // Preload the dependency tree bundle while the browser is idle
