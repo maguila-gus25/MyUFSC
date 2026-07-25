@@ -77,6 +77,10 @@ const CourseBox = memo(function CourseBox({
   // A drag that just ended fires a synthetic click right after pointerup;
   // this suppresses that one click so dragging doesn't also open the details panel.
   const suppressClickRef = useRef(false);
+  // Timestamp of the last click, used to detect a double-click manually (see
+  // handleCourseClick) since the box's pointerdown preventDefault suppresses the
+  // browser's synthesized dblclick event.
+  const lastClickTimeRef = useRef(0);
 
   const statusClass = useMemo(() => {
     if (isEmpty) return STATUS_CLASSES.EMPTY;
@@ -277,21 +281,27 @@ const CourseBox = memo(function CourseBox({
 
   const handleCourseClick = () => {
     if (suppressClickRef.current) return;
-    if (!isEmpty && !isStub) selectCourse(studentCourse, studentCourse.course);
-  };
-
-  // Double-clicking a real course opens its prerequisite/dependency tree.
-  // Dispatched as a window event (same cross-component pattern as the drag
-  // engine) so `app/page.tsx` — which owns the dependency-tree state — can react
-  // without threading a prop down through every visualizer.
-  const handleCourseDoubleClick = () => {
-    if (suppressClickRef.current) return;
     if (isEmpty || isStub) return;
-    window.dispatchEvent(
-      new CustomEvent("open-dependency-tree", {
-        detail: { course: studentCourse.course },
-      }),
-    );
+
+    // Manual double-click detection: a second click within 300ms opens the
+    // course's prerequisite/dependency tree. We can't use React's onDoubleClick
+    // because the box's pointerdown preventDefault (needed by the custom drag
+    // engine) suppresses the browser's synthesized dblclick, while the
+    // pointer-generated click events still fire. The tree is opened by
+    // dispatching a window event (same cross-component pattern as the drag
+    // engine) that app/page.tsx — which owns the dependency-tree state — handles.
+    const now = Date.now();
+    if (now - lastClickTimeRef.current < 300) {
+      lastClickTimeRef.current = 0;
+      window.dispatchEvent(
+        new CustomEvent("open-dependency-tree", {
+          detail: { course: studentCourse.course },
+        }),
+      );
+      return;
+    }
+    lastClickTimeRef.current = now;
+    selectCourse(studentCourse, studentCourse.course);
   };
 
   return (
@@ -313,7 +323,6 @@ const CourseBox = memo(function CourseBox({
         touchAction: isDraggable && !isEmpty ? "none" : undefined,
       }}
       onClick={handleCourseClick}
-      onDoubleClick={handleCourseDoubleClick}
       data-course-id={studentCourse.course.id}
       role={isDraggable && !isEmpty ? "button" : undefined}
       aria-label={isDraggable && !isEmpty ? `Drag course ${studentCourse.course.id}` : undefined}
