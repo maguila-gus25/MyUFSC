@@ -572,13 +572,23 @@ function ScenarioPreview({
         </p>
       )}
 
-      {/* Graduation-requirements reminder — always shown */}
-      <p className="text-xs text-muted-foreground">
-        Além das disciplinas: {scenario.graduationReminder.complementaresHours}h
-        de atividades complementares e{" "}
-        {scenario.graduationReminder.optativasHours}h de optativas não estão
-        incluídas neste plano.
-      </p>
+      {/* Graduation-requirements reminder — remaining hours, hidden when none left */}
+      {(() => {
+        const { complementaresHours, optativasHours } =
+          scenario.graduationReminder;
+        if (complementaresHours === 0 && optativasHours === 0) return null;
+        const parts: string[] = [];
+        if (complementaresHours > 0)
+          parts.push(`${complementaresHours}h de atividades complementares`);
+        if (optativasHours > 0)
+          parts.push(`${optativasHours}h de optativas`);
+        return (
+          <p className="text-xs text-muted-foreground">
+            Para se formar, ainda faltam {parts.join(" e ")}, que não estão
+            incluídas neste plano.
+          </p>
+        );
+      })()}
     </div>
   );
 }

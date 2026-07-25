@@ -12,6 +12,42 @@ export interface CurriculumStatusEntry {
 }
 
 /**
+ * Safely determine if a course definition is optional (an elective).
+ * Preserves the historical `false`/`"false"` type coercion.
+ */
+export function isDefOptional(def: Course): boolean {
+  return (
+    def.type === "optional" ||
+    (def as any).type === false ||
+    String((def as any).type).toLowerCase() === "false"
+  );
+}
+
+/**
+ * Determine if a course is a generic elective placeholder (optativa) in the
+ * curriculum — i.e. a slot, not a real course the student can take.
+ * It's a placeholder if its ID contains "OPT" or its name is literally
+ * "Optativa...".
+ */
+export function isGenericPlaceholder(def: Course): boolean {
+  // It must be an elective
+  if (!isDefOptional(def)) return false;
+  // It's a placeholder if its ID contains "OPT" or its name is literally "Optativa..."
+  const hasOptInId = /OPT/i.test(def.id);
+  const hasOptInName = /optativa/i.test(def.name || "");
+
+  return hasOptInId || hasOptInName;
+}
+
+/**
+ * Predicate: is this course a genuine (non-placeholder) elective — an elective
+ * course a student actually takes, as opposed to a generic curriculum slot.
+ */
+export function isRealElective(course: Course): boolean {
+  return isDefOptional(course) && !isGenericPlaceholder(course);
+}
+
+/**
  * Core curriculum status engine (extracted verbatim from
  * `CurriculumVisualizer`'s `mappedCurriculumCourses` memo).
  *
@@ -38,25 +74,6 @@ export function computeCurriculumStatusMap(
 
   const allStudentCourses = semesters.flatMap((s) => s.courses);
 
-  // Helper to safely determine if a course definition is optional
-  const isDefOptional = (def: Course) =>
-    def.type === "optional" ||
-    (def as any).type === false ||
-    String((def as any).type).toLowerCase() === "false";
-
-  // Helper to determine if a course is a generic generic placeholder (optativa) in the curriculum
-  const isGenericPlaceholder = (def: Course) => {
-    // It must be an elective
-    if (!isDefOptional(def)) return false;
-    // It's a placeholder if its ID contains "OPT" or its name is literally "Optativa..."
-    const hasOptInId = /OPT/i.test(def.id);
-    const hasOptInName = /optativa/i.test(def.name || "");
-    // Or if it simply has a designated phase (valid real electives from UFSC usually have phase 0 or null)
-    const hasPhase = def.phase && def.phase > 0;
-
-    return hasOptInId || hasOptInName;
-  };
-
   // Sum up optional hours from the student's progress strictly based on the current curriculum's rules
   allStudentCourses.forEach((sc) => {
     // Lookup how THIS specific curriculum classifies the course the student took
@@ -64,11 +81,7 @@ export function computeCurriculumStatusMap(
 
     // A course is a valid elective (Optativa) if it exists in the curriculum as 'optional'
     // and is NOT a generic placeholder itself
-    if (
-      curriculumDef &&
-      isDefOptional(curriculumDef) &&
-      !isGenericPlaceholder(curriculumDef)
-    ) {
+    if (curriculumDef && isRealElective(curriculumDef)) {
       // UFSC usually counts 18h per credit
       const hours =
         curriculumDef.workload ||
