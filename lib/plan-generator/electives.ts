@@ -57,6 +57,13 @@ import {
 import type { GeneratorInput, PlanScenario } from "@/lib/plan-generator/types";
 
 /**
+ * Safety cap on how many elective-only semesters may be appended when demand
+ * remains after the mandatory semesters are filled. A backstop against a
+ * pathological pool; a real 288h target settles in a handful of semesters.
+ */
+const MAX_ELECTIVE_SPAN = 16;
+
+/**
  * Ordered pool of real optativas eligible to be scheduled: a genuine elective
  * (not a generic placeholder), offered in the snapshot with at least one
  * night-turno-valid section, and not already earned/placed in the plan (by id or
@@ -137,11 +144,19 @@ function clonePlan(plan: StudentPlan): StudentPlan {
  * Fill an already-generated scenario's free night slots with real optativas up
  * to its remaining elective demand (`scenario.graduationReminder.optativasHours`).
  *
+ * Two phases: (1) fill the free slots of the already-generated mandatory
+ * semesters; (2) if elective demand still remains, append elective-only
+ * semesters (bounded by {@link MAX_ELECTIVE_SPAN}) until demand is met or the
+ * offered pool can place nothing more — so the plan reaches the 288h target
+ * instead of merely reporting the gap. Appended semesters are counted in
+ * `electiveOnlySemesters`; they do NOT change `totalFutureSemesters` (the
+ * mandatory makespan), keeping the daytime-card comparison stable.
+ *
  * Returns a new scenario (inputs never mutated) with the placed electives added
- * to the plan, `optativasPlacedHours` set, `perSemesterCredits` recomputed, and
- * `graduationReminder.optativasHours` reduced to the leftover shortfall. A no-op
- * (only `optativasPlacedHours: 0` added) when demand is already 0 or the
- * scenario generated no future semesters — the mandatory plan is then untouched.
+ * to the plan, `optativasPlacedHours` / `electiveOnlySemesters` set,
+ * `perSemesterCredits` extended, and `graduationReminder.optativasHours` reduced
+ * to the leftover shortfall. A no-op (only the two fields zeroed) when demand is
+ * already 0 — the mandatory plan is then untouched (parity).
  */
 export function fillElectivesIntoScenario(
   scenario: PlanScenario,
@@ -151,18 +166,8 @@ export function fillElectivesIntoScenario(
 ): PlanScenario {
   const demand = scenario.graduationReminder.optativasHours;
   if (demand <= 0) {
-    return { ...scenario, optativasPlacedHours: 0 };
+    return { ...scenario, optativasPlacedHours: 0, electiveOnlySemesters: 0 };
   }
-
-  // Generated future semesters carry gen-* instanceIds; only those get filled.
-  const genNumbers = scenario.plan.semesters
-    .filter((s) => s.courses.some((c) => c.instanceId?.startsWith("gen-")))
-    .map((s) => s.number);
-  if (genNumbers.length === 0) {
-    return { ...scenario, optativasPlacedHours: 0 };
-  }
-  const firstGen = Math.min(...genNumbers);
-  const lastGen = Math.max(...genNumbers);
 
   const { studentInfo, courses, sections, config } = input;
   const workingPlan = clonePlan(scenario.plan);
@@ -185,15 +190,15 @@ export function fillElectivesIntoScenario(
   let placedHours = 0;
   let counter = 0;
 
-  for (let n = firstGen; n <= lastGen && placedHours < demand; n++) {
-    const semester = workingPlan.semesters.find((s) => s.number === n);
-    if (!semester) continue;
-
+  /**
+   * Greedily place fitting pool optativas into `semester` (mutating it and the
+   * shared `placed`/`placedHours`/`counter` state). Rescans the pool each round:
+   * a later course may fit where an earlier one didn't, and a just-placed
+   * elective can gate a later one. Returns how many it placed.
+   */
+  const fillSemester = (semester: StudentSemester): number => {
     const occupied = occupiedCells(semester, sections);
-
-    // Repeatedly place the first pool optativa that fits this semester. Rescan
-    // from the top each time: a later course may fit where an earlier one didn't
-    // (credit cap / conflict), and a just-placed elective can gate a later one.
+    let count = 0;
     let progressed = true;
     while (progressed && placedHours < demand) {
       progressed = false;
@@ -201,7 +206,10 @@ export function fillElectivesIntoScenario(
         if (placed.has(course.id)) continue;
         const credits = course.credits || 0;
         if (semester.totalCredits + credits > config.creditCap) continue;
-        if (!checkPrerequisites(course, n, workingInfo, equivMap).satisfied) {
+        if (
+          !checkPrerequisites(course, semester.number, workingInfo, equivMap)
+            .satisfied
+        ) {
           continue;
         }
         const section = validSections(course, sections, config.turno).find(
@@ -221,28 +229,70 @@ export function fillElectivesIntoScenario(
           credits,
           status: CourseStatus.PLANNED,
           class: section.classNumber,
-          phase: n,
+          phase: semester.number,
         });
         semester.totalCredits += credits;
         placed.add(course.id);
         placedHours += courseHours(course);
+        count++;
         progressed = true;
         break;
       }
     }
+    return count;
+  };
+
+  // Phase 1: fill the free slots of the already-generated mandatory semesters.
+  const genNumbers = workingPlan.semesters
+    .filter((s) => s.courses.some((c) => c.instanceId?.startsWith("gen-")))
+    .map((s) => s.number);
+  const firstGen = genNumbers.length ? Math.min(...genNumbers) : undefined;
+  const lastGen = genNumbers.length ? Math.max(...genNumbers) : undefined;
+
+  if (firstGen !== undefined && lastGen !== undefined) {
+    for (let n = firstGen; n <= lastGen && placedHours < demand; n++) {
+      const semester = workingPlan.semesters.find((s) => s.number === n);
+      if (semester) fillSemester(semester);
+    }
   }
 
+  // Phase 2: if demand still remains, append elective-only semesters until it is
+  // met or the offered pool can place nothing more (honest shortfall). Bounded.
+  let electiveOnlySemesters = 0;
+  let appendNumber =
+    Math.max(0, ...workingPlan.semesters.map((s) => s.number)) + 1;
+  while (placedHours < demand && electiveOnlySemesters < MAX_ELECTIVE_SPAN) {
+    const semester: StudentSemester = {
+      number: appendNumber,
+      courses: [],
+      totalCredits: 0,
+    };
+    const count = fillSemester(semester);
+    if (count === 0) break; // pool exhausted / prereqs block → stop
+    workingPlan.semesters.push(semester); // visible to later appended semesters
+    electiveOnlySemesters++;
+    appendNumber++;
+  }
+
+  // Preview credits over every future semester we touched (mandatory + elective).
+  const rangeStart = firstGen ?? (electiveOnlySemesters > 0 ? appendNumber - electiveOnlySemesters : undefined);
+  const rangeEnd = appendNumber - 1;
   const perSemesterCredits: number[] = [];
-  for (let n = firstGen; n <= lastGen; n++) {
-    const sem = workingPlan.semesters.find((s) => s.number === n);
-    perSemesterCredits.push(sem?.totalCredits ?? 0);
+  if (rangeStart !== undefined) {
+    for (let n = rangeStart; n <= rangeEnd; n++) {
+      const sem = workingPlan.semesters.find((s) => s.number === n);
+      perSemesterCredits.push(sem?.totalCredits ?? 0);
+    }
   }
 
   return {
     ...scenario,
     plan: workingPlan,
-    perSemesterCredits,
+    perSemesterCredits: perSemesterCredits.length
+      ? perSemesterCredits
+      : scenario.perSemesterCredits,
     optativasPlacedHours: placedHours,
+    electiveOnlySemesters,
     graduationReminder: {
       ...scenario.graduationReminder,
       optativasHours: Math.max(0, demand - placedHours),
