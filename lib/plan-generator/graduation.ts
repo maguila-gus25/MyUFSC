@@ -70,10 +70,15 @@ export function computeGraduationReminder(
       const def = courseById.get(sc.courseId);
       if (!def) continue;
 
-      if (isRealElective(def)) {
-        optativasEarned += courseHours(def);
-      } else if (isNonDisciplineRequirement(def)) {
+      // Non-discipline requirements are checked FIRST: once Atividades
+      // Complementares are re-tagged off `mandatory` at ingestion (issue #11)
+      // they read as `optional`, which would otherwise trip `isRealElective` and
+      // land in the optativas bucket. The name-based non-discipline predicate is
+      // authoritative and must win regardless of the `type` tag.
+      if (isNonDisciplineRequirement(def)) {
         complementaresEarned += courseHours(def);
+      } else if (isRealElective(def)) {
+        optativasEarned += courseHours(def);
       }
       // Mandatory disciplines and generic elective placeholders count toward
       // neither bucket.

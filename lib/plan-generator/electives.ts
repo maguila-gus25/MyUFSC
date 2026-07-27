@@ -43,7 +43,10 @@ import { CourseStatus } from "@/types/student-plan";
 import type { Professor } from "@/parsers/class-parser";
 import { checkPrerequisites } from "@/lib/prerequisites";
 import { isRealElective } from "@/lib/curriculum-status";
-import { resolveTerminalStatus } from "@/lib/plan-generator/candidates";
+import {
+  isNonDisciplineRequirement,
+  resolveTerminalStatus,
+} from "@/lib/plan-generator/candidates";
 import { courseHours } from "@/lib/plan-generator/graduation";
 import { isNightTurnoValid } from "@/lib/plan-generator/night";
 import {
@@ -69,6 +72,9 @@ export function buildElectivePool(
 ): Course[] {
   const pool = courses.filter((course) => {
     if (!isRealElective(course)) return false;
+    // Guard the #11 re-tag: an Atividades Complementares row re-tagged off
+    // `mandatory` reads as a real elective but is not a schedulable discipline.
+    if (isNonDisciplineRequirement(course)) return false;
     // Must be offered with a section this student's turno filter accepts.
     const profs = sections[course.id];
     if (!profs || profs.length === 0) return false;
