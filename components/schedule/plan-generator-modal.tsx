@@ -578,6 +578,7 @@ function ScenarioPreview({
         const { complementaresHours, optativasHours } =
           scenario.graduationReminder;
         const placed = scenario.optativasPlacedHours;
+        const electiveSemesters = scenario.electiveOnlySemesters;
         if (complementaresHours === 0 && optativasHours === 0 && placed === 0) {
           return null;
         }
@@ -590,7 +591,15 @@ function ScenarioPreview({
           <div className="space-y-1">
             {placed > 0 && (
               <p className="text-xs text-muted-foreground">
-                Este plano já agenda {placed}h de optativas.
+                Este plano já agenda {placed}h de optativas
+                {electiveSemesters > 0
+                  ? `, incluindo ${electiveSemesters} ${
+                      electiveSemesters === 1
+                        ? "semestre só de optativas"
+                        : "semestres só de optativas"
+                    }`
+                  : ""}
+                .
               </p>
             )}
             {remainingParts.length > 0 && (
