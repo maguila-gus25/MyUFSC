@@ -656,6 +656,7 @@ export function packForward(
     scheduleSnapshotSemester,
     graduationReminder: ctx.graduationReminder,
     optativasPlacedHours: 0,
+    electiveOnlySemesters: 0,
     isOptimal: false,
     strategyId: strategy.id,
     config,

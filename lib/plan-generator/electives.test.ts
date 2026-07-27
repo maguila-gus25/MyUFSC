@@ -67,6 +67,7 @@ function prof(
 }
 
 const NO_PREF: TurnoFilter = { morning: true, afternoon: true, night: true };
+const NIGHT_ONLY: TurnoFilter = { morning: false, afternoon: false, night: true };
 const noEquiv = new Map<string, Set<string>>();
 
 /**
@@ -76,7 +77,7 @@ const noEquiv = new Map<string, Set<string>>();
 function makeInput(
   courses: Course[],
   sections: Record<string, Professor[]>,
-  opts: { creditCap?: number; history?: StudentPlan } = {},
+  opts: { creditCap?: number; history?: StudentPlan; turno?: TurnoFilter } = {},
 ): GeneratorInput {
   const studentInfo: StudentInfo = {
     currentDegree: "TEST",
@@ -90,8 +91,13 @@ function makeInput(
     studentInfo,
     courses,
     sections,
-    config: { turno: NO_PREF, creditCap: opts.creditCap ?? 30 },
+    config: { turno: opts.turno ?? NO_PREF, creditCap: opts.creditCap ?? 30 },
   };
+}
+
+/** Count of appended elective-only semesters on the primary scenario. */
+function electiveOnly(scenario: PlanScenario): number {
+  return scenario.electiveOnlySemesters;
 }
 
 /** A completed optativa in semester 1 that earned `workload` hours of demand. */
@@ -240,38 +246,140 @@ test("demand exceeds offered pool → places all it can, reports the shortfall",
   assert.ok(ids.has("OA") && ids.has("OB"), "both offered optativas placed");
 });
 
-test("an optativa clashing with the mandatory course in every free slot is not placed", () => {
+test("an optativa with no turno-valid section is never placed (excluded from pool)", () => {
   const m = mandatory({ id: "M", name: "Mand" });
-  // OA's only section occupies the exact cell M sits in → never fits.
+  // OA is offered only in the morning; a night-only student can never take it.
   const oa = optativa({ id: "OA", name: "Opt A", workload: 72 });
   const sections: Record<string, Professor[]> = {
     M: [prof("M", "01", 0, "18:30", "20:10")],
-    OA: [prof("OA", "01", 0, "18:30", "20:10")],
+    OA: [prof("OA", "01", 0, "07:30", "09:10")],
   };
-  const input = makeInput([m, oa], sections);
+  const input = makeInput([m, oa], sections, { turno: NIGHT_ONLY });
 
   const scenario = primary(generatePlanScenarios(input));
 
   assert.equal(scenario.optativasPlacedHours, 0);
-  assert.ok(!placedIds(scenario).has("OA"), "conflicting optativa not placed");
+  assert.ok(!placedIds(scenario).has("OA"), "morning-only optativa not placed");
 });
 
-test("elective fill respects the credit cap", () => {
+test("elective fill respects the per-semester credit cap, spilling to a new semester", () => {
   const m = mandatory({ id: "M", name: "Mand" }); // 4 credits
   const oa = optativa({ id: "OA", name: "Opt A", workload: 72 }); // 4 credits
   const ob = optativa({ id: "OB", name: "Opt B", workload: 72 }); // 4 credits
+  const done = optativa({ id: "ODONE", name: "Done", workload: 144 });
   const sections: Record<string, Professor[]> = {
     M: [prof("M", "01", 0, "18:30", "20:10")],
     OA: [prof("OA", "01", 1, "18:30", "20:10")],
     OB: [prof("OB", "01", 2, "18:30", "20:10")],
+    ODONE: [prof("ODONE", "01", 3, "18:30", "20:10")],
   };
-  // Cap 8 → M(4)+one optativa(4) fills the only generated semester.
-  const input = makeInput([m, oa, ob], sections, { creditCap: 8 });
+  // 144 earned → demand 144 (two 72h optativas). Cap 8 → M(4)+OA(4) fill the
+  // generated semester; OB spills into one elective-only semester.
+  const input = makeInput([m, oa, ob, done], sections, {
+    creditCap: 8,
+    history: completedOptativaHistory("ODONE", 144),
+  });
 
   const scenario = primary(generatePlanScenarios(input));
 
-  assert.equal(scenario.optativasPlacedHours, 72, "only one optativa fits the cap");
+  assert.equal(scenario.optativasPlacedHours, 144, "both optativas placed across semesters");
+  assert.equal(electiveOnly(scenario), 1, "one elective-only semester appended");
+  assert.equal(scenario.graduationReminder.optativasHours, 0);
   for (const sem of scenario.plan.semesters) {
     assert.ok(sem.totalCredits <= 8, `semester ${sem.number} within cap`);
   }
+});
+
+// --- US-1: elective-only tail semesters -------------------------------------
+
+test("demand met inside existing free slots appends no extra semester", () => {
+  const m = mandatory({ id: "M", name: "Mand" });
+  const oa = optativa({ id: "OA", name: "Opt A", workload: 72 });
+  const done = optativa({ id: "ODONE", name: "Done", workload: 216 });
+  const sections: Record<string, Professor[]> = {
+    M: [prof("M", "01", 0, "18:30", "20:10")],
+    OA: [prof("OA", "01", 1, "18:30", "20:10")], // free cell in M's semester
+    ODONE: [prof("ODONE", "01", 3, "18:30", "20:10")],
+  };
+  // demand 72 → OA fits beside M, no tail semester needed.
+  const input = makeInput([m, oa, done], sections, {
+    history: completedOptativaHistory("ODONE", 216),
+  });
+
+  const scenario = primary(generatePlanScenarios(input));
+
+  assert.equal(scenario.optativasPlacedHours, 72);
+  assert.equal(electiveOnly(scenario), 0, "no elective-only semester");
+});
+
+test("remaining demand appends elective-only semesters until it hits 0", () => {
+  const m = mandatory({ id: "M", name: "Mand" }); // fills its own semester at cap
+  const oa = optativa({ id: "OA", name: "Opt A", workload: 72 });
+  const ob = optativa({ id: "OB", name: "Opt B", workload: 72 });
+  const done = optativa({ id: "ODONE", name: "Done", workload: 144 });
+  const sections: Record<string, Professor[]> = {
+    M: [prof("M", "01", 0, "18:30", "20:10")],
+    OA: [prof("OA", "01", 0, "18:30", "20:10")], // both clash with M's cell...
+    OB: [prof("OB", "01", 0, "18:30", "20:10")], // ...so neither fits beside M
+    ODONE: [prof("ODONE", "01", 3, "18:30", "20:10")],
+  };
+  // demand 144; OA/OB clash with M so they can't share M's semester → each needs
+  // its own elective-only semester (they also clash with each other).
+  const input = makeInput([m, oa, ob, done], sections, {
+    history: completedOptativaHistory("ODONE", 144),
+  });
+
+  const scenario = primary(generatePlanScenarios(input));
+
+  assert.equal(scenario.optativasPlacedHours, 144);
+  assert.equal(scenario.graduationReminder.optativasHours, 0);
+  assert.equal(electiveOnly(scenario), 2, "two elective-only semesters appended");
+});
+
+test("makespan headline excludes appended elective-only semesters", () => {
+  const m = mandatory({ id: "M", name: "Mand" });
+  const oa = optativa({ id: "OA", name: "Opt A", workload: 72 });
+  const sections: Record<string, Professor[]> = {
+    M: [prof("M", "01", 0, "18:30", "20:10")],
+    OA: [prof("OA", "01", 0, "18:30", "20:10")], // clashes with M → tail semester
+  };
+  const input = makeInput([m, oa], sections); // demand 288
+
+  const scenario = primary(generatePlanScenarios(input));
+
+  assert.equal(scenario.totalFutureSemesters, 1, "one mandatory semester (M)");
+  assert.ok(electiveOnly(scenario) >= 1, "OA forced into a tail semester");
+});
+
+test("pool exhausted appends what it can and still reports the shortfall", () => {
+  const m = mandatory({ id: "M", name: "Mand" });
+  const oa = optativa({ id: "OA", name: "Opt A", workload: 72 });
+  const sections: Record<string, Professor[]> = {
+    M: [prof("M", "01", 0, "18:30", "20:10")],
+    OA: [prof("OA", "01", 0, "18:30", "20:10")], // clashes with M
+  };
+  const input = makeInput([m, oa], sections); // demand 288, pool only 72h
+
+  const scenario = primary(generatePlanScenarios(input));
+
+  assert.equal(scenario.optativasPlacedHours, 72);
+  assert.equal(scenario.graduationReminder.optativasHours, 288 - 72);
+  assert.equal(electiveOnly(scenario), 1);
+});
+
+test("empty-mandatory plan with elective demand appends elective-only semesters", () => {
+  // No mandatory courses at all → makespan 0, but 288h of optativas are owed.
+  const oa = optativa({ id: "OA", name: "Opt A", workload: 72 });
+  const ob = optativa({ id: "OB", name: "Opt B", workload: 72 });
+  const sections: Record<string, Professor[]> = {
+    OA: [prof("OA", "01", 0, "18:30", "20:10")],
+    OB: [prof("OB", "01", 1, "18:30", "20:10")],
+  };
+  const input = makeInput([oa, ob], sections); // demand 288
+
+  const scenario = primary(generatePlanScenarios(input));
+
+  assert.equal(scenario.totalFutureSemesters, 0, "no mandatory semesters");
+  assert.ok(electiveOnly(scenario) >= 1, "elective-only semesters appended");
+  assert.equal(scenario.optativasPlacedHours, 144, "both optativas placed");
 });

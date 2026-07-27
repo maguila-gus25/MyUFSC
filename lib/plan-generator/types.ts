@@ -153,6 +153,15 @@ export interface PlanScenario {
    */
   optativasPlacedHours: number;
   /**
+   * Number of extra semesters this scenario appended that schedule ONLY
+   * optativas (no mandatory disciplines) to reach the elective-hour target when
+   * the generated mandatory semesters had no free capacity left (`electives.ts`).
+   * `0` when nothing was appended. These are NOT counted in
+   * {@link totalFutureSemesters} (the mandatory makespan) — they are surfaced
+   * separately so the daytime-card comparison and makespan label stay stable.
+   */
+  electiveOnlySemesters: number;
+  /**
    * True when the achieved makespan (`totalFutureSemesters`) equals
    * `minSemestersFloor` — provably optimal against our admissible lower bound.
    * NOT a global feasibility proof: the floor is a top-K/reused-snapshot
