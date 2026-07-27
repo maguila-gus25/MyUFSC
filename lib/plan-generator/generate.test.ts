@@ -312,3 +312,69 @@ test("no-regression: the min-semester search is never worse than runGreedy", () 
   const searched = searchMinSemesters(input, input.config).totalFutureSemesters;
   assert.ok(searched <= baseline, `search ${searched} must be ≤ baseline ${baseline}`);
 });
+
+// --- (j) turno slot-capacity generalizes beyond night-only (#10) -------------
+//
+// The packer's conflict math is cell-based and turno-agnostic; eligibility is
+// gated by the turno filter. These fixtures verify morning / afternoon / mixed
+// packing packs as many conflict-free courses as the grid allows — the case
+// Sprint 03 left "verified for night-only" only.
+
+const AFTERNOON_ONLY: TurnoFilter = {
+  morning: false,
+  afternoon: true,
+  night: false,
+};
+
+test("morning-only: two conflict-free morning courses share one semester", () => {
+  const a = course({ id: "A", name: "A" });
+  const b = course({ id: "B", name: "B" });
+  const sections: Record<string, Professor[]> = {
+    A: [prof("A", "01", 0, "07:30", "09:10")], // Mon morning
+    B: [prof("B", "01", 1, "07:30", "09:10")], // Tue morning (distinct cell)
+  };
+  const input = makeInput([a, b], sections, MORNING_ONLY);
+
+  const scenario = searchMinSemesters(input, input.config);
+
+  assert.equal(scenario.unplaceable.length, 0);
+  assert.equal(placedSemester(scenario, "A"), placedSemester(scenario, "B"),
+    "both morning courses land in the same semester");
+});
+
+test("no-preference: morning + afternoon + night courses co-schedule in one semester", () => {
+  // Different turnos never share a cell, so the mixed grid fits all three at once
+  // — proving capacity is not capped at the ten night cells.
+  const m = course({ id: "M", name: "Manhã" });
+  const t = course({ id: "T", name: "Tarde" });
+  const n = course({ id: "N", name: "Noite" });
+  const sections: Record<string, Professor[]> = {
+    M: [prof("M", "01", 0, "08:20", "10:10")],
+    T: [prof("T", "01", 0, "13:30", "15:10")],
+    N: [prof("N", "01", 0, "18:30", "20:20")],
+  };
+  const input = makeInput([m, t, n], sections, NO_PREF);
+
+  const scenario = searchMinSemesters(input, input.config);
+
+  assert.equal(scenario.unplaceable.length, 0);
+  assert.equal(placedSemester(scenario, "M"), placedSemester(scenario, "T"));
+  assert.equal(placedSemester(scenario, "T"), placedSemester(scenario, "N"));
+  assert.equal(scenario.totalFutureSemesters, 1, "all three fit one semester");
+});
+
+test("same cell still defers across turnos: two afternoon courses at the same slot split", () => {
+  const a = course({ id: "A", name: "A" });
+  const b = course({ id: "B", name: "B" });
+  const sections: Record<string, Professor[]> = {
+    A: [prof("A", "01", 2, "13:30", "15:10")], // Wed afternoon
+    B: [prof("B", "01", 2, "13:30", "15:10")], // same cell → must not co-schedule
+  };
+  const input = makeInput([a, b], sections, AFTERNOON_ONLY);
+
+  const scenario = searchMinSemesters(input, input.config);
+
+  assert.equal(scenario.unplaceable.length, 0);
+  assert.notEqual(placedSemester(scenario, "A"), placedSemester(scenario, "B"),
+    "same-cell afternoon courses land in different semesters");
+});
