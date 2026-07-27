@@ -58,7 +58,7 @@ on every degree-set change → see `docs/data-loading-hooks.md`.
 | `components/visualizers/` | `CurriculumVisualizer` (phase grid), `GridVisualizer` (electives, duplicates status logic), `ProgressVisualizer` (semester lanes), `CourseBox`/`GhostBox`/`TrashDropZone` (custom pointer-drag primitives, see Drag-and-drop below) |
 | `components/dependency-tree/` | Prerequisite-chain overlay: `useDependencyGraph`, `useDashboardRef`, `ConnectionLines` (SVG via portal), `CourseHighlighter`, `InfoBanner` |
 | `components/schedule/` | `Timetable` (heaviest component: rendering + conflict detection + custom events + prof ratings + ICS export), `TimetableGrid`, `TimetableHeader`, `CourseList`, `CourseStats`, `ProfessorSelector`, `AvailableCoursesModal`, `SearchInput`/`SearchPopup`, `CustomEventModal`, `CreditsSummary` |
-| `components/professors/` | `ProfessorSearch`, `ProfessorDetailsDialog` (refreshKey full-reload pattern), `ProfessorRatingBadge`, `WriteReviewDialog` |
+| `components/professors/` | `ProfessorSearch`, `ProfessorDetailsDialog` (optimistic local-state patches on mutate — no full reload), `ProfessorRatingBadge`; inline compose in `ProfessorDetailsSection` is the only review-compose path (no `WriteReviewDialog`) |
 | `components/selector/` | `DegreeSelector`/`DegreeMultiSelector` — cmdk combobox, accent-insensitive, recent-curriculum pruning |
 | `components/layout/` | `Header` (nav, degree selector, import popover, theme, logout), `Visualizations` (curriculum/electives tab toggle) |
 | `components/transcript/` | `transcript-uploader.tsx` — PDF upload UI |
