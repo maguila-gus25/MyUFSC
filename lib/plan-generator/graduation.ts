@@ -35,7 +35,7 @@ const COMPLEMENTARES_TOTAL_HOURS = 360;
 const OPTATIVAS_TOTAL_HOURS = 288;
 
 /** Hours credited for a course (18h/credit fallback, matching curriculum-status). */
-function courseHours(def: Course): number {
+export function courseHours(def: Course): number {
   return def.workload || def.credits * 18;
 }
 

@@ -66,8 +66,12 @@ export interface GeneratorInput {
 }
 
 /**
- * Static graduation requirements beyond the mandatory disciplines, surfaced as
- * a reminder on every scenario. Optativas scheduling is deferred to Sprint 04.
+ * Graduation requirements beyond the mandatory disciplines, surfaced as a
+ * reminder on every scenario. Both fields are **remaining** hours after the
+ * student's completed/exempted history AND (for optativas) whatever this
+ * scenario's elective post-pass managed to schedule — so `optativasHours` is the
+ * shortfall still not covered. Complementares are reported-only (no schedulable
+ * sections). See `graduation.ts` + `electives.ts`.
  */
 export interface GraduationReminder {
   complementaresHours: number;
@@ -138,8 +142,16 @@ export interface PlanScenario {
   assumesReusedFutureSchedule: boolean;
   /** Calendar code of the reused schedule snapshot (see {@link GeneratorInput}). */
   scheduleSnapshotSemester: string;
-  /** Static reminder of the non-discipline graduation requirements. */
+  /** Reminder of the non-discipline graduation requirements (remaining hours). */
   graduationReminder: GraduationReminder;
+  /**
+   * Elective (optativas) credit-hours this scenario actually scheduled into its
+   * generated future semesters (the elective post-pass — `electives.ts`). `0`
+   * when the student had no remaining optativa demand or the offered pool could
+   * not fit any elective. `optativasPlacedHours` + `graduationReminder.optativasHours`
+   * accounts for the demand at generation time.
+   */
+  optativasPlacedHours: number;
   /**
    * True when the achieved makespan (`totalFutureSemesters`) equals
    * `minSemestersFloor` — provably optimal against our admissible lower bound.
