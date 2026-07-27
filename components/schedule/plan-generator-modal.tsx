@@ -572,21 +572,34 @@ function ScenarioPreview({
         </p>
       )}
 
-      {/* Graduation-requirements reminder — remaining hours, hidden when none left */}
+      {/* Graduation requirements — optativas this plan schedules vs what still
+          remains (plus complementares, which have no schedulable sections). */}
       {(() => {
         const { complementaresHours, optativasHours } =
           scenario.graduationReminder;
-        if (complementaresHours === 0 && optativasHours === 0) return null;
-        const parts: string[] = [];
-        if (complementaresHours > 0)
-          parts.push(`${complementaresHours}h de atividades complementares`);
+        const placed = scenario.optativasPlacedHours;
+        if (complementaresHours === 0 && optativasHours === 0 && placed === 0) {
+          return null;
+        }
+        const remainingParts: string[] = [];
         if (optativasHours > 0)
-          parts.push(`${optativasHours}h de optativas`);
+          remainingParts.push(`${optativasHours}h de optativas`);
+        if (complementaresHours > 0)
+          remainingParts.push(`${complementaresHours}h de atividades complementares`);
         return (
-          <p className="text-xs text-muted-foreground">
-            Para se formar, ainda faltam {parts.join(" e ")}, que não estão
-            incluídas neste plano.
-          </p>
+          <div className="space-y-1">
+            {placed > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Este plano já agenda {placed}h de optativas.
+              </p>
+            )}
+            {remainingParts.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Para se formar, ainda faltam {remainingParts.join(" e ")}, que
+                não estão incluídas neste plano.
+              </p>
+            )}
+          </div>
         );
       })()}
     </div>
