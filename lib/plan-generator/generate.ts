@@ -54,6 +54,7 @@ import {
 import { generateEquivalenceMap } from "@/parsers/curriculum-parser";
 import { buildRemainingCandidates, isTerminalStatus } from "@/lib/plan-generator/candidates";
 import { computeGraduationReminder } from "@/lib/plan-generator/graduation";
+import { fillElectivesIntoScenario } from "@/lib/plan-generator/electives";
 import { isNightTurnoValid } from "@/lib/plan-generator/night";
 import {
   packMaxWeight,
@@ -654,6 +655,7 @@ export function packForward(
     assumesReusedFutureSchedule,
     scheduleSnapshotSemester,
     graduationReminder: ctx.graduationReminder,
+    optativasPlacedHours: 0,
     isOptimal: false,
     strategyId: strategy.id,
     config,
@@ -731,11 +733,18 @@ export function generatePlanScenarios(input: GeneratorInput): GeneratorResult {
 
   const scenarios: PlanScenario[] = [];
 
+  // Elective post-pass shares one equivalence map (identity for the "already
+  // earned" exclusion). Adding electives never changes a scenario's makespan, so
+  // the daytime-comparison below still compares the mandatory plans as before —
+  // the fill only enriches the card that is kept.
+  const equivMap = generateEquivalenceMap(input.courses);
+
   // B=0 — strict night, the baseline every daytime plan is measured against.
-  const night = withCardIdentity(
-    searchMinSemesters(input, input.config),
+  const night = fillElectivesIntoScenario(
+    withCardIdentity(searchMinSemesters(input, input.config), "s0", "Só à noite"),
+    input,
+    equivMap,
     "s0",
-    "Só à noite",
   );
   scenarios.push(night);
   let bestMakespan = night.totalFutureSemesters;
@@ -747,7 +756,12 @@ export function generatePlanScenarios(input: GeneratorInput): GeneratorResult {
     if (!candidate) break; // no viable promotion candidate at all
     if (candidate.totalFutureSemesters < bestMakespan) {
       scenarios.push(
-        withCardIdentity(candidate, `s${b}`, daytimeLabel(b)),
+        fillElectivesIntoScenario(
+          withCardIdentity(candidate, `s${b}`, daytimeLabel(b)),
+          input,
+          equivMap,
+          `s${b}`,
+        ),
       );
       bestMakespan = candidate.totalFutureSemesters;
     }
